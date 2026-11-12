@@ -1,0 +1,11 @@
+{
+  "code": "pp",
+  "price": 11500.0,
+  "unit": "元/吨",
+  "quote_basis": "普拉司华南市场 PP 福建中景石化 T30S 拉丝粒料现货参考价",
+  "quote_date": "2026-11-11",
+  "source": "free_pp",
+  "source_name": "普拉司网",
+  "source_url": "https://www.plasway.com/news/detail/991B9DDC8F60623F814ED8E192BC6C31",
+  "fetched_at": "2026-11-12T14:01:07+08:00"
+}
