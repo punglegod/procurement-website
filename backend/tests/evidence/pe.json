@@ -1,0 +1,11 @@
+{
+  "code": "pe",
+  "price": 10280.0,
+  "unit": "元/吨",
+  "quote_basis": "普拉司华南市场 LLDPE 中石化海南 DFDA 7042 现货参考价",
+  "quote_date": "2026-11-11",
+  "source": "free_pe",
+  "source_name": "普拉司网",
+  "source_url": "https://www.plasway.com/news/detail/A4388C00DA89FE17F36E0971E04283EB",
+  "fetched_at": "2026-11-12T14:00:49+08:00"
+}
