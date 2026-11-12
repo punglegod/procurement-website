@@ -221,3 +221,39 @@ def test_credentials_only_read_root_dotenv(tmp_path, monkeypatch):
     assert not config_module.sci99_configured(config_module.read_sci99_settings())
     (tmp_path / ".env").write_text("SCI99_COOKIE=literal=${TOKEN}\n", encoding="utf-8")
     assert config_module.read_sci99_settings()["SCI99_COOKIE"] == "literal=${TOKEN}"
+
+
+@pytest.mark.parametrize("old,new,amount,percent", [
+    ("120", "150", 30.0, 25.0),
+    ("150", "120", -30.0, -20.0),
+    ("150", "150", 0.0, 0.0),
+    ("140", "150", 10.0, 7.14),
+])
+def test_latest_changes_compare_previous_quote_with_exact_basis(factory, monkeypatch, old, new, amount, percent):
+    monkeypatch.setattr(service_module, "read_sci99_settings", lambda: EMPTY_SETTINGS)
+    first = FreeAdapter.parse(FREE_HTML, URL)
+    first.price = Decimal(old)
+    FetchService(factory).store([first], "free")
+    with factory() as session:
+        # 无关口径即使日期更近，也不能参与涨跌对比。
+        session.add(PricePoint(code="alu_a00", price=Decimal("999"), unit="元/吨",
+                               quote_basis="隔离测试：其他口径", quote_date=date(2020, 1, 3),
+                               source="free", source_name="隔离测试", source_url=URL, fetched_at=first.fetched_at))
+        session.commit()
+    second = FreeAdapter.parse(FREE_HTML, URL)
+    second.price, second.quote_date = Decimal(new), date(2020, 1, 6)
+    FetchService(factory).store([second], "free")
+    row = latest_prices(factory)[0]
+    assert row["change_amount"] == amount
+    assert row["change_percent"] == percent
+    assert row["previous_quote_date"] == "2020-01-02"
+
+
+def test_latest_changes_are_null_without_comparison(factory, monkeypatch):
+    monkeypatch.setattr(service_module, "read_sci99_settings", lambda: EMPTY_SETTINGS)
+    row = latest_prices(factory)[0]
+    assert row["change_amount"] is row["change_percent"] is row["previous_quote_date"] is None
+    FetchService(factory).store([FreeAdapter.parse(FREE_HTML, URL)], "free")
+    row = latest_prices(factory)[0]
+    assert row["price_point"]["price"] == 150
+    assert row["change_amount"] is row["change_percent"] is row["previous_quote_date"] is None

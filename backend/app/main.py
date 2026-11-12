@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="采购行情网站", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="采购行情网站", version="0.2.0", lifespan=lifespan)
 
 
 @app.get("/api/health")
@@ -73,7 +73,7 @@ def sources_status():
     return {"items": service.statuses()}
 
 
-# 第二阶段构建 Vue 前端后由同一服务托管；本阶段目录保持空壳。
+# 哈希路由使详情页刷新仍请求根首页，API 路由优先于静态目录。
 frontend_dist = ROOT / "frontend" / "dist"
-if frontend_dist.is_dir():
+if (frontend_dist / "index.html").is_file():
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")

@@ -1,6 +1,7 @@
 import logging
 import threading
 from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert
@@ -136,10 +137,16 @@ def latest_prices(session_factory=SessionLocal):
     result = []
     with session_factory() as session:
         for item in COMMODITIES:
-            point = session.scalar(select(PricePoint).where(
+            points = session.scalars(select(PricePoint).where(
                 PricePoint.code == item.code, PricePoint.quote_basis == item.quote_basis,
-                PricePoint.source == item.source,
-            ).order_by(PricePoint.quote_date.desc()).limit(1))
+                PricePoint.source == item.source, PricePoint.unit == item.unit,
+            ).order_by(PricePoint.quote_date.desc()).limit(2)).all()
+            point = points[0] if points else None
+            previous = points[1] if len(points) > 1 else None
+            # 仅比较相同来源、口径及单位的相邻报价日；缺少对比时不以零充数。
+            change = point.price - previous.price if previous else None
+            percent = ((change / previous.price * 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                       if previous and previous.price > 0 else None)
             status = source_states[item.source]
             data_status = "pending_configuration" if not item.enabled else status["status"]
             message = "本阶段仅配置目录，具体报价规格和解析待核定" if not item.enabled else status["message"]
@@ -148,6 +155,9 @@ def latest_prices(session_factory=SessionLocal):
                 "unit": item.unit, "data_status": data_status, "message": message,
                 "stale": point is None or point.quote_date < now().date(),
                 "price_point": serialize_price(point) if point else None,
+                "change_amount": float(change) if change is not None else None,
+                "change_percent": float(percent) if percent is not None else None,
+                "previous_quote_date": previous.quote_date.isoformat() if previous else None,
             })
     return result
 
@@ -158,6 +168,7 @@ def price_history(code, days, session_factory=SessionLocal):
     with session_factory() as session:
         points = session.scalars(select(PricePoint).where(
             PricePoint.code == code, PricePoint.source == item.source,
-            PricePoint.quote_basis == item.quote_basis, PricePoint.quote_date >= since,
+            PricePoint.quote_basis == item.quote_basis, PricePoint.unit == item.unit,
+            PricePoint.quote_date >= since,
         ).order_by(PricePoint.quote_date)).all()
         return {"code": code, "days": days, "quote_basis": item.quote_basis, "items": [serialize_price(p) for p in points]}
