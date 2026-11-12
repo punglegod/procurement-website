@@ -1,0 +1,8 @@
+fastapi==0.162.5
+uvicorn==0.54.0
+SQLAlchemy==2.1.8
+APScheduler==3.11.3
+httpx==0.28.1
+selectolax==1.0.2
+python-dotenv==1.2.4
+tzdata==2026.6
