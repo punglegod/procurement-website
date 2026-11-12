@@ -1,0 +1,11 @@
+{
+  "code": "pc",
+  "price": 14500.0,
+  "unit": "元/吨",
+  "quote_basis": "普拉司华南市场 PC 山东利华益维远 WY-111BR 现货参考价",
+  "quote_date": "2026-11-11",
+  "source": "free_pc",
+  "source_name": "普拉司网",
+  "source_url": "https://www.plasway.com/news/detail/C9255FC6460FDED28DE6E6F00147D018",
+  "fetched_at": "2026-11-12T13:56:58+08:00"
+}
