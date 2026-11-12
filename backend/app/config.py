@@ -73,3 +73,11 @@ def read_telegram_settings() -> dict[str, str]:
     # 每次读取根目录文件，配置修改后无需重启；不继承进程中的同名凭据。
     values = dotenv_values(ROOT / ".env", encoding="utf-8-sig", interpolate=False)
     return {key: (values.get(key) or "").strip() for key in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")}
+
+
+def read_account_settings() -> dict[str, str]:
+    # 凭据仅来自项目根目录文件；测试通过替换 ROOT 隔离正式配置。
+    values = dotenv_values(ROOT / ".env", encoding="utf-8-sig", interpolate=False)
+    return {key: values.get(key) or "" for key in (
+        "ADMIN_USERNAME", "ADMIN_PASSWORD", "RESEND_API_KEY", "EMAIL_FROM", "SESSION_COOKIE_SECURE"
+    )} | {"EMAIL_FROM": values.get("EMAIL_FROM") or "sourcing@bbbhl.com"}

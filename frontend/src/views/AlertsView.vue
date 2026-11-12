@@ -24,10 +24,10 @@ onMounted(() => action(async () => {}))
 </script>
 
 <template>
-  <section class="page-heading"><div><div class="eyebrow">PRICE ALERTS</div><h1>提醒规则</h1><p>按固定现货口径提醒，及时掌握价格变化。</p></div><button class="button" :disabled="busy" @click="check">立即检查规则</button></section>
+  <section class="page-heading"><div><div class="eyebrow">PRICE ALERTS</div><h1>我的提醒</h1><p>按固定现货口径提醒，及时掌握价格变化。</p></div><button class="button" :disabled="busy" @click="check">立即检查规则</button></section>
   <div v-if="error" role="alert" class="notice error-notice">{{ error }}<button class="text-button" :disabled="busy" @click="action(async () => {})">重新读取</button></div>
   <div v-if="notice" role="status" class="notice">{{ notice }}</div>
-  <div class="notice" v-if="channel">Telegram：{{ channel.message }} <RouterLink to="/push-logs" class="text-button">查看日志 / 测试推送 ↗</RouterLink></div>
+  <div class="notice" v-if="channel">{{ channel.message }} <RouterLink to="/push-logs" class="text-button">查看日志 / 测试推送 ↗</RouterLink></div>
   <section class="panel alert-form-panel">
     <h2>{{ editing ? `编辑规则 #${editing}` : '新增提醒' }}</h2>
     <form class="alert-form" @submit.prevent="save">

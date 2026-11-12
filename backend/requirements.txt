@@ -6,3 +6,4 @@ httpx==0.28.1
 selectolax==1.0.2
 python-dotenv==1.2.4
 tzdata==2026.6
+argon2-cffi==25.1.0

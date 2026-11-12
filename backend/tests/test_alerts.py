@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from backend.app import config, main
+from backend.app import config, main, auth
 from backend.app.alerts import AlertService, RuleInput, TelegramSender, evaluate
 from backend.app.config import COMMODITY_MAP, TIMEZONE
 from backend.app.db import initialize_database, make_engine
@@ -23,10 +23,12 @@ SETTINGS = {"TELEGRAM_BOT_TOKEN": "123:isolated-test", "TELEGRAM_CHAT_ID": "isol
 
 
 @pytest.fixture
-def factory(tmp_path):
+def factory(tmp_path, monkeypatch):
     engine = make_engine(f"sqlite:///{(tmp_path/'alerts.sqlite3').as_posix()}")
     initialize_database(engine)
-    yield sessionmaker(engine, expire_on_commit=False)
+    factory = sessionmaker(engine, expire_on_commit=False)
+    monkeypatch.setattr(auth, "SessionLocal", factory)
+    yield factory
     engine.dispose()
 
 
@@ -80,7 +82,7 @@ class Sender:
 
 def seed(factory, sender=None, settings=None):
     service = AlertService(factory, sender=sender or Sender(), settings_reader=lambda: SETTINGS if settings is None else settings)
-    saved = service.save(RuleInput(code="alu_a00", kind="daily_change", threshold="5"))
+    saved = service.save(RuleInput(code="alu_a00", kind="daily_change", threshold="5"), user_id=1)
     with factory() as session:
         session.add_all([point("100", DAY-timedelta(days=3)), point("105"),
                          point("999", DAY-timedelta(days=1), quote_basis="其他口径不得对比")])
@@ -93,40 +95,40 @@ def test_atomic_daily_dedup_persists_after_restart_and_edit(factory, status):
     sender = Sender(status)
     service, saved = seed(factory, sender)
     with ThreadPoolExecutor(max_workers=4) as pool:
-        outputs = list(pool.map(lambda _: service.run(at=AT)["results"][0]["status"], range(4)))
+        outputs = list(pool.map(lambda _: service.run(at=AT, user_id=1)["results"][0]["status"], range(4)))
     assert outputs.count(status) == 1
     assert outputs.count("deduplicated") == 3
-    service.save(RuleInput(code="alu_a00", kind="price_gte", threshold="1"), saved["id"])
+    service.save(RuleInput(code="alu_a00", kind="price_gte", threshold="1"), saved["id"], user_id=1)
     restarted = AlertService(factory, sender=sender, settings_reader=lambda: SETTINGS)
-    assert restarted.run(at=AT)["results"][0]["status"] == "deduplicated"
+    assert restarted.run(at=AT, user_id=1)["results"][0]["status"] == "deduplicated"
     with factory() as session:
         session.add(point("106", DAY+timedelta(days=1)))
         session.commit()
-    assert restarted.run(at=AT+timedelta(days=1))["results"][0]["status"] == status
+    assert restarted.run(at=AT+timedelta(days=1), user_id=1)["results"][0]["status"] == status
     assert len(sender.calls) == 2
-    assert service.delete(saved["id"])
-    assert service.logs()["total"] == 2
-    assert service.save(RuleInput(code="alu_a00", kind="price_gte", threshold="1"))["id"] > saved["id"]
+    assert service.delete(saved["id"], user_id=1)
+    assert service.logs(user_id=1)["total"] == 2
+    assert service.save(RuleInput(code="alu_a00", kind="price_gte", threshold="1"), user_id=1)["id"] > saved["id"]
 
 
 def test_missing_config_does_not_consume_rule_quota_or_send(factory):
     sender = Sender()
     service, _ = seed(factory, sender, {})
-    assert service.run(at=AT)["results"][0]["status"] == "pending_configuration"
-    assert service.logs()["total"] == 0
-    assert service.test()["status"] == "pending_configuration"
+    assert service.run(at=AT, user_id=1)["results"][0]["status"] == "pending_configuration"
+    assert service.logs(user_id=1)["total"] == 1
+    assert service.test(user_id=1)["status"] == "pending_configuration"
     assert not sender.calls
     service.settings_reader = lambda: SETTINGS
-    assert service.run(at=AT)["results"][0]["status"] == "sent"
+    assert service.run(at=AT, user_id=1)["results"][0]["status"] == "sent"
 
 
 def test_disabled_rule_and_test_do_not_interfere_with_daily_quota(factory):
     service, saved = seed(factory)
-    service.save(RuleInput(code="alu_a00", kind="price_gte", threshold="1", enabled=False), saved["id"])
-    assert service.run(at=AT)["results"] == []
-    assert service.test()["status"] == "sent"
-    service.save(RuleInput(code="alu_a00", kind="price_gte", threshold="1"), saved["id"])
-    assert service.run(at=AT)["results"][0]["status"] == "sent"
+    service.save(RuleInput(code="alu_a00", kind="price_gte", threshold="1", enabled=False), saved["id"], user_id=1)
+    assert service.run(at=AT, user_id=1)["results"] == []
+    assert service.test(user_id=1)["status"] == "sent"
+    service.save(RuleInput(code="alu_a00", kind="price_gte", threshold="1"), saved["id"], user_id=1)
+    assert service.run(at=AT, user_id=1)["results"][0]["status"] == "sent"
 
 
 @pytest.mark.parametrize("response,expected", [
@@ -177,6 +179,7 @@ def test_api_crud_validation_logs_and_channel(factory, monkeypatch):
     monkeypatch.setattr(main, "channel_status", lambda: {"status": "pending_configuration"})
     # 接口验证始终使用隔离数据库，不写项目数据库。
     with TestClient(main.app) as client:
+        assert client.post("/api/auth/login", json={"username": "test_admin", "password": "isolated-test-password"}).status_code == 200
         assert client.get("/api/alerts/status").json()["status"] == "pending_configuration"
         payload = {"code": "pe", "kind": "price_lte", "threshold": 9000}
         created = client.post("/api/alerts/rules", json=payload)

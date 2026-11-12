@@ -1,4 +1,4 @@
-# Linux 云服务器运行说明（第四阶段交付，未执行部署）
+# Linux 云服务器运行说明（第五阶段更新，未执行部署）
 
 目标为一台 3 核 / 20G Linux 主机。只运行一个 FastAPI 容器、一个 worker；Vue 构建产物由后端静态托管。SQLite 位于持久卷，APScheduler 位于同一进程。容器限额 2 CPU / 2G 内存，为宿主系统和构建留余量。不要增加副本或 worker，也不要同时运行 `start.py`。
 
@@ -18,9 +18,9 @@ cp .env.example .env
 chmod 644 .env
 ```
 
-用编辑器填入已验收的 Telegram token/chat_id，`SCI99_USER`、`SCI99_PASS`、`SCI99_COOKIE` 留空；模板中的卓创 URL 不会启用休眠 adapter。服务按项目规则只从 `/app/.env` 文件读配置，不能使用 compose `env_file` 替代文件挂载。容器使用 UID/GID 10001，需能读取挂载的 `.env`；项目父目录应只允许管理员访问（例如 `chmod 700 /opt/procurement-website`），不要放在多人共享目录。配置是只读挂载，不写入镜像。若采用更严格的文件权限，请通过 ACL 授予 UID 10001 只读权限。
+用编辑器填入首次播种所需 `ADMIN_USERNAME` / `ADMIN_PASSWORD`（8～128 位），以及 Telegram token/chat_id。邮件需要 `RESEND_API_KEY`、`EMAIL_FROM`（默认 sourcing@bbbhl.com）；用户在个人设置填收件邮箱。`SCI99_USER`、`SCI99_PASS`、`SCI99_COOKIE` 留空；模板中的卓创 URL 不会启用休眠 adapter。服务只从 `/app/.env` 读取，不能使用 compose `env_file` 替代文件挂载。容器使用 UID/GID 10001，需能读取挂载的 `.env`；项目父目录只允许管理员访问，例如 `chmod 700 /opt/procurement-website`。配置只读挂载，不写入镜像；更严格权限可用 ACL 授予 UID 10001 只读。
 
-构建需能访问 Docker Hub、PyPI、npm registry；运行需访问各公开行情站和 api.telegram.org:443。不要照抄开发机 `127.0.0.1:7890` 代理：容器内回环是容器自身。如服务器需要代理，应通过服务器实际可达的代理配置另行设置 HTTPS_PROXY，不提交代理凭据。
+构建需访问 Docker Hub、PyPI、npm registry；运行需访问各公开行情站、api.telegram.org:443、api.resend.com:443。不要照抄开发机 `127.0.0.1:7890` 代理：容器内回环是容器自身。如需代理，应配置服务器实际可达的 HTTPS_PROXY，不提交代理凭据。
 
 ## 构建、启动、访问
 
@@ -29,11 +29,12 @@ docker compose config --quiet
 docker compose build --pull
 docker compose up -d
 docker compose ps
-curl --fail http://127.0.0.1:8000/api/health
+# 匿名请求应为 401；compose 健康检查也验证该认证门禁。
+curl -i http://127.0.0.1:8000/api/health
 docker compose logs --tail=100 web
 ```
 
-服务默认不在启动时抓价，北京时间每日 15:30 抓取，每 5 分钟检查提醒；主机时间须正常同步。首次采集可在服务器执行 `curl --fail -X POST http://127.0.0.1:8000/api/fetch/run`，这会在采集后检查真实提醒规则。失败不会删除历史，旧日期仍显示“过期”；健康检查只表示服务可用，不表示来源成功，应另查 `/api/sources/status`。
+服务不在启动时抓价，北京时间每日 15:30 抓取，每 5 分钟检查所有有效账号的提醒；主机时间须正常同步。首次采集请管理员登录后在“全局设置”点击“立即抓取行情”，会在采集后检查真实提醒。失败不删历史，旧日期仍显示“过期”；健康检查不表示来源成功，管理员应查看数据源状态。所有 API 均需会话，不再支持匿名 curl 写操作。
 
 从自己的电脑建立 SSH 隧道：
 
@@ -41,11 +42,13 @@ docker compose logs --tail=100 web
 ssh -N -L 8000:127.0.0.1:8000 your-user@your-server
 ```
 
-浏览器打开 `http://127.0.0.1:8000/`。本网站没有登录系统，包含可写规则和推送接口，因此 compose 仅绑定服务器回环；服务器安全组不开放 8000。若以后要域名公网入口，需另行配置访问认证与 HTTPS，本阶段不部署该入口。
+浏览器打开 `http://127.0.0.1:8000/` 后登录。注册只创建普通账号，全局设置、抓取、用户管理仅管理员可用。默认 compose 绑定服务器回环，安全组不开放 8000。以后使用域名公网入口须配置 HTTPS，并在 `.env` 设置 `SESSION_COOKIE_SECURE=true`；反向代理传递可信的正确 Host / scheme。HTTP 本地隧道保持 false。本阶段未部署公网入口。
 
 ## 持久化、备份、迁移
 
 SQLite 及 WAL/SHM 文件在 `procurement_procurement_data` 命名卷，重建容器和普通 `docker compose down` 均保留。**不要执行 `docker compose down -v`**。首次启动空卷自动建表；不自动迁移开发机历史。
+
+第五阶段首次升级已有第四阶段数据库，先在卷内 `/app/data/backup/<库名>-pre-stage5-<时间戳>.sqlite3` 做一致性备份，再事务迁移规则和日志至管理员账号；首次启动缺管理员配置会失败。升级前停止旧实例，确保没有第二个服务同时使用旧结构。备份路径记录在 `site_settings.stage5_backup`，应复制到容器外。恢复第四阶段必须同时恢复该备份和第四阶段镜像，否则新代码启动会再次升级；回滚会丢弃备份之后创建的账号与配置。
 
 在线一致性备份（SQLite backup API 会合并 WAL 中已提交记录；切勿只拷贝运行中的主库文件）：
 
@@ -72,15 +75,15 @@ docker compose up -d
 更新前备份数据库，再保留当前镜像用于回滚：
 
 ```bash
-docker tag procurement-website:stage4 procurement-website:previous
+docker tag procurement-website:stage5 procurement-website:previous
 docker compose build --pull
 docker compose up -d
-curl --fail http://127.0.0.1:8000/api/health
+curl -i http://127.0.0.1:8000/api/health
 ```
 
-回滚代码：`docker tag procurement-website:previous procurement-website:stage4` 后 `docker compose up -d --no-build`。若将来版本涉及数据库变更，还需按该版本迁移说明处理；不要直接把旧库覆盖到运行中的新服务。
+同结构代码回滚：`docker tag procurement-website:previous procurement-website:stage5` 后 `docker compose up -d --no-build`。第五阶段回第四阶段还须停止服务、恢复 pre-stage5 数据备份，并使用保留的第四阶段镜像；不要将旧库覆盖到运行中的新服务。
 
-手动停止用 `docker compose stop`，查看来源用 `curl --fail http://127.0.0.1:8000/api/sources/status`。不要开启自动高频重抓。免费页有更新延迟、统计日可能早于发布日，不能保证每日都有当日价格；源结构变化会明确失败，绝不填造价格。
+手动停止用 `docker compose stop`，管理员登录后查看来源状态。不要开启自动高频重抓。免费页有更新延迟，不能保证每日有当日价格；源结构变化明确失败，不填造价格。
 
 ## 本次验证边界
 

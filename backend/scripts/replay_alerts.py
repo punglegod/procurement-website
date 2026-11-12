@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import secrets
 from tempfile import TemporaryDirectory
 from urllib.parse import urljoin
 
@@ -21,8 +22,11 @@ from backend.app.adapters.common import normalized, validate_url
 from backend.app.adapters.free import FreeAdapter
 from backend.app.alerts import AlertService, RuleInput
 from backend.app.config import TIMEZONE
+from backend.app import config
 from backend.app.db import initialize_database, make_engine
 from backend.app.service import FetchService, serialize_price
+from backend.app.auth import hash_password
+from backend.app.models import User, PushSetting
 
 
 class ReplaySender:
@@ -75,6 +79,8 @@ def main():
     threshold = min(Decimal("0.01"), change.quantize(Decimal("0.0001"), rounding=ROUND_DOWN))
     with TemporaryDirectory(prefix="alerts-replay-") as temporary:
         engine = make_engine(f"sqlite:///{Path(temporary).as_posix()}/replay.sqlite3")
+        config.ROOT = Path(temporary)
+        (config.ROOT / ".env").write_text("ADMIN_USERNAME=replay_admin\nADMIN_PASSWORD=" + secrets.token_urlsafe(24) + "\n", encoding="utf-8")
         initialize_database(engine)
         factory = sessionmaker(engine, expire_on_commit=False)
         FetchService(factory).store(points, "free")
@@ -84,12 +90,12 @@ def main():
         conditions = [("daily_change", threshold), ("price_gte", final.price), ("price_lte", final.price),
                       ("daily_change", change.quantize(Decimal("0.0001"))+1),
                       ("price_gte", max(p.price for p in points)+1), ("price_lte", min(p.price for p in points)-1)]
-        rules = [service.save(RuleInput(code="alu_a00", kind=kind, threshold=value)) for kind, value in conditions]
+        rules = [service.save(RuleInput(code="alu_a00", kind=kind, threshold=value), user_id=1) for kind, value in conditions]
         trace = []
         for p in points:
             at = datetime.combine(p.quote_date, time(16), tzinfo=TIMEZONE)
-            first = service.run(at=at)
-            second = AlertService(factory, sender=sender, settings_reader=lambda: settings).run(at=at)
+            first = service.run(at=at, user_id=1)
+            second = AlertService(factory, sender=sender, settings_reader=lambda: settings).run(at=at, user_id=1)
             for a, b in zip(first["results"], second["results"]):
                 assert b["status"] == ("deduplicated" if a["status"] == "replayed" else "skipped")
             trace.append({"day": str(p.quote_date), "first": first["results"], "restart_repeat": second["results"]})
@@ -97,16 +103,31 @@ def main():
         assert "缺少上一报价日" in trace[0]["first"][0]["detail"]
         at = datetime.combine(final.quote_date, time(16), tzinfo=TIMEZONE)
         with ThreadPoolExecutor(max_workers=4) as pool:
-            concurrent = list(pool.map(lambda _: service.run(at=at), range(4)))
+            concurrent = list(pool.map(lambda _: service.run(at=at, user_id=1), range(4)))
         assert all(r["status"] == "deduplicated" for batch in concurrent for r in batch["results"][:3])
         # 同一规则改阈值后，既有额度仍保留。
-        service.save(RuleInput(code="alu_a00", kind="price_gte", threshold=final.price), rules[0]["id"])
-        assert service.run(at=at)["results"][0]["status"] == "deduplicated"
+        service.save(RuleInput(code="alu_a00", kind="price_gte", threshold=final.price), rules[0]["id"], user_id=1)
+        assert service.run(at=at, user_id=1)["results"][0]["status"] == "deduplicated"
+        # 相同真实历史另建个人规则，管理员已用额度不能影响第二账号。
+        with factory() as session:
+            other = User(username="replay_user", password_hash=hash_password(secrets.token_urlsafe(24)), role="user", enabled=True, created_at=at.replace(tzinfo=None))
+            session.add(other); session.flush()
+            other_id = other.id
+            session.add(PushSetting(user_id=other_id, email="isolated@example.com")); session.commit()
+        personal = AlertService(factory, email_sender=sender, email_settings_reader=lambda: {"RESEND_API_KEY": "isolated-replay", "EMAIL_FROM": "sourcing@bbbhl.com"})
+        personal.save(RuleInput(code="alu_a00", kind="price_gte", threshold=final.price), user_id=other_id)
+        assert personal.run(at=at, user_id=other_id)["results"][0]["status"] == "replayed"
+        assert personal.run(at=at, user_id=other_id)["results"][0]["status"] == "deduplicated"
+        assert len(service.rules(user_id=1)["items"]) == 6
+        assert len(personal.rules(user_id=other_id)["items"]) == 1
+        assert personal.logs(user_id=other_id)["total"] == 1
+        assert all(row["user_id"] == 1 for row in service.logs(page_size=100, user_id=1)["items"])
         output = {"status": "passed", "mode": "isolated_replay_no_telegram", "points": [serialize_price(p) for p in points],
                   "daily_change_absolute_percent": str(change), "rules": rules, "trace": trace,
                   "concurrent_repeats": 4, "isolated_messages": len(sender.messages),
-                  "logs": service.logs(page_size=100), "checks": ["涨跌幅与两种到价条件触发（到价含等号）", "未达到阈值不触发", "首日缺前价跳过", "跨日额度重置", "进程重建后同日去重", "四路并发去重", "修改规则不重置额度"]}
+                  "logs": service.logs(page_size=100, user_id=1), "personal_logs": personal.logs(user_id=other_id), "checks": ["涨跌幅与两种到价条件触发（到价含等号）", "未达到阈值不触发", "首日缺前价跳过", "跨日额度重置", "进程重建后同日去重", "四路并发去重", "修改规则不重置额度", "第二账号独立触发、去重、规则和日志隔离"]}
         engine.dispose()
+        config.ROOT = ROOT
     path = ROOT / "data/stage3-replay.json"
     path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({k: output[k] for k in ("status", "mode", "points", "daily_change_absolute_percent", "checks", "isolated_messages")}, ensure_ascii=False, indent=2))

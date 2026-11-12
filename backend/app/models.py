@@ -60,6 +60,7 @@ class AlertRule(Base):
     # 删除后不复用规则编号，保留日志与日额度的对应关系。
     __table_args__ = (CheckConstraint("threshold > 0"), {"sqlite_autoincrement": True})
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     code: Mapped[str] = mapped_column(ForeignKey("commodities.code"), index=True)
     kind: Mapped[str] = mapped_column(String(30))
     threshold: Mapped[Decimal] = mapped_column(Numeric(14, 4))
@@ -73,8 +74,12 @@ class AlertRule(Base):
 
 class PushLog(Base):
     __tablename__ = "push_logs"
-    __table_args__ = (UniqueConstraint("rule_id", "code", "send_day", name="uq_rule_code_send_day"),)
+    __table_args__ = (UniqueConstraint("user_id", "rule_id", "code", "send_day", "channel", name="uq_user_rule_day_channel"),)
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    channel: Mapped[str] = mapped_column(String(20), default="telegram")
+    recipient: Mapped[str | None] = mapped_column(String(254))
+    provider_message_id: Mapped[str | None] = mapped_column(String(200))
     # 不设外键：删除规则后仍保留原规则编号、内容和日额度。
     rule_id: Mapped[int | None]
     code: Mapped[str | None] = mapped_column(String(40))
@@ -86,3 +91,40 @@ class PushLog(Base):
     telegram_message_id: Mapped[int | None]
     created_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (CheckConstraint("role IN ('admin', 'user')"), {"sqlite_autoincrement": True})
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(500))
+    role: Mapped[str] = mapped_column(String(10), default="user")
+    enabled: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class PushSetting(Base):
+    __tablename__ = "push_settings"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), default="")
+
+
+class SiteSetting(Base):
+    __tablename__ = "site_settings"
+    key: Mapped[str] = mapped_column(String(50), primary_key=True)
+    value: Mapped[str] = mapped_column(String(200))
+
+
+class LoginThrottle(Base):
+    __tablename__ = "login_throttles"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    failures: Mapped[int]
+    reset_at: Mapped[datetime] = mapped_column(DateTime)

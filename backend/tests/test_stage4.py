@@ -146,13 +146,16 @@ def test_free_sources_stop_on_security_checks(content):
 
 
 def test_scheduler_single_daily_job_and_fetch_busy_route(tmp_path, monkeypatch):
+    from backend.app import auth
     engine = make_engine(f"sqlite:///{tmp_path / 'api.sqlite3'}")
     initialize_database(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
+    monkeypatch.setattr(auth, "SessionLocal", factory)
     monkeypatch.setattr(main_module, "initialize_database", lambda: None)
     monkeypatch.setattr(main_module, "service", FetchService(factory))
     try:
         with TestClient(main_module.app) as client:
+            assert client.post("/api/auth/login", json={"username": "test_admin", "password": "isolated-test-password"}).status_code == 200
             jobs = {j.id: j for j in main_module.app.state.scheduler.get_jobs()}
             assert set(jobs) == {"daily_prices", "alerts"}
             assert str(jobs["daily_prices"].trigger) == "cron[hour='15', minute='30']"

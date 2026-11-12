@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { getJson } from './api'
+import { user } from './auth'
 
 const items = ref([])
 const sources = ref([])
@@ -18,7 +19,7 @@ async function refresh() {
     try {
       const [latest, status] = await Promise.all([
         getJson('/api/prices/latest', controller.signal),
-        getJson('/api/sources/status', controller.signal),
+        user.value?.role === 'admin' ? getJson('/api/sources/status', controller.signal) : Promise.resolve({ items: [] }),
       ])
       items.value = latest.items
       sources.value = status.items

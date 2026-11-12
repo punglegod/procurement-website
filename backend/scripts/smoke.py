@@ -3,16 +3,19 @@ import json
 from pathlib import Path
 
 import httpx
+from smoke_auth import add_auth_arguments, login
 
 
 def main():
     parser = argparse.ArgumentParser(description="第一阶段真实服务验收；加 --fetch 才触发网络抓取")
+    add_auth_arguments(parser)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--fetch", action="store_true")
     parser.add_argument("--output")
     args = parser.parse_args()
     results = {}
     with httpx.Client(base_url=args.base_url, trust_env=False, timeout=180) as client:
+        login(client, args)
         def get(path):
             response = client.get(path)
             response.raise_for_status()

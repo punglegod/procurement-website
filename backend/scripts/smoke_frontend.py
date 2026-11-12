@@ -6,13 +6,16 @@ from pathlib import Path
 import re
 
 import httpx
+from smoke_auth import add_auth_arguments, login
 
 
 def main():
     parser = argparse.ArgumentParser()
+    add_auth_arguments(parser)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     args = parser.parse_args()
     with httpx.Client(base_url=args.base_url, timeout=15, trust_env=False) as client:
+        login(client, args)
         page = client.get("/")
         assert page.status_code == 200 and 'id="app"' in page.text
         assets = re.findall(r'(?:src|href)="(/assets/[^\"]+)"', page.text)

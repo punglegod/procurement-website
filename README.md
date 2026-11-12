@@ -1,6 +1,6 @@
 # 采购行情网站
 
-单人内部使用的原材料**现货**价格跟踪网站。包含 11 品种行情表格、搜索筛选、涨跌与过期提示、7 / 30 / 90 天历史走势，以及第三阶段的提醒规则、Telegram 推送和发送日志。FastAPI 同时提供 API 和前端构建产物，最终只运行一个服务进程。
+需注册登录的原材料**现货**价格跟踪网站。包含 11 品种行情、搜索筛选、涨跌与过期提示、历史走势，以及按账号隔离的提醒、邮箱推送和日志。管理员管理全局设置与用户，并保留 Telegram 通道。FastAPI 同时提供 API 和 Vue 构建产物，最终只运行一个服务进程。
 
 **当前决定（2026-11-12）：只跑免费源；卓创暂缓启用，不填写凭据。** 第四阶段已逐个验证全部 11 个品种的免费公开现货源。每个品种固定一个报价口径，保留真实报价日；不补造历史。逐品种进度见 [STAGE4_PROGRESS.md](STAGE4_PROGRESS.md)，完整自测与提交限制见 [STAGE4_REPORT.md](STAGE4_REPORT.md)。
 
@@ -11,6 +11,8 @@
 - 已有 `frontend/dist` 时可使用 `--skip-build` 启动，无需 Node.js。
 
 以下命令均从项目根目录执行。PowerShell：
+
+首次运行前复制 `.env.example` 为 `.env`（已有文件不要覆盖），填入 `ADMIN_USERNAME` / `ADMIN_PASSWORD`。账号须为 3～64 位字母、数字、下划线或连字符，密码 8～128 位。升级旧库时先停止旧服务；启动会先备份再迁移。没有管理员且缺少有效播种配置时启动失败，不将旧规则留给无主账号。
 
 ```powershell
 python -m venv .venv
@@ -55,7 +57,43 @@ $env:NPM_CONFIG_HTTPS_PROXY = 'http://127.0.0.1:7890'
 $env:NPM_CONFIG_PROXY = 'http://127.0.0.1:7890'
 ```
 
-默认监听 `127.0.0.1:8000`。接口与文档仅用于本站内部，文档地址：<http://127.0.0.1:8000/docs>。本阶段没有多用户、注册或公网访问功能。
+默认监听 `127.0.0.1:8000`。未登录访问首页会跳到 `/login`，接口（含健康检查）返回 401；登录与注册入口及其静态脚本允许匿名加载。文档地址 <http://127.0.0.1:8000/docs> 也需要会话。普通账号调用全局设置接口返回 403。Vite 开发模式由前端路由守卫跳登录、后端接口校验权限；正式单服务同时执行页面门禁。
+
+## 账号、个人推送与升级（第五阶段）
+
+管理员首次由根目录 `.env` 播种，已有同名账号的密码和角色不覆盖；开放注册只能创建 `user`。管理员可在“用户管理”禁用、启用、删除普通账号及开关注册；管理员账号受保护。禁用、删除即时撤销该账号全部会话，删除同时清理其规则、推送设置与日志。注册开关不影响已有账号登录。
+
+密码用 Argon2id 哈希；Cookie 为 HttpOnly、SameSite=Strict，有效期 7 天，数据库只存令牌摘要。改密码要求原密码并撤销全部旧会话，退出撤销当前会话。登录与原密码校验失败按客户端地址和账号节流：15 分钟内 5 次失败后返回 429。HTTPS 部署设置 `.env` 中 `SESSION_COOKIE_SECURE=true`，本机 HTTP 保持 false；写操作校验 Origin，拒绝跨站请求。
+
+“我的提醒”“推送日志”“我的推送设置”只读写当前登录账号；传入他人规则编号返回 404。普通账号无全局管理入口。管理员规则走 Telegram，填写个人邮箱后同时走邮件；普通账号只走其个人邮箱。根目录 `.env` 的 `RESEND_API_KEY` 与 `EMAIL_FROM`（默认 `sourcing@bbbhl.com`）供服务端使用，账号只填写自己的收件邮箱。未配置 key、发件地址或收件邮箱时如实显示、记录 `pending_configuration`，不发网络请求。Resend API 返回有效消息编号才记 `sent`；不等同于最终收件箱送达。实现依据 [Resend 官方发送接口](https://resend.com/docs/api-reference/emails/send-email)。
+
+提醒、推送设置、日志都带 `user_id`，个人立即检查只评估自己；定时与采集后检查遍历全部有效账号。每日去重按**用户 + 规则 + 品种 + 北京日期 + 通道**，每个通道每天最多一次发送尝试；失败、超时、中断仍占额度。待配置记录可在补配置后原位转为发送记录，不占发送额度，不因每 5 分钟检查无限追加日志。管理员 Telegram 与邮件各自领取额度，一条通道失败不影响另一条。
+
+旧库首次升级使用 SQLite backup API 在 `data/backup/<库名>-pre-stage5-<时间戳>.sqlite3` 生成一致性备份（包含 WAL 已提交数据），然后在单一事务内建表、播种、迁移。旧规则与旧 Telegram 日志归最早管理员，保留编号、内容、日期、消息编号、当日额度和规则 AUTOINCREMENT 最大值；报价和抓取额度不改。`site_settings.stage5_backup` 保存该次备份路径，重复启动不重复迁移或覆盖密码。备份/播种失败则中止升级。
+
+回滚时先停止所有服务并另存当前库，再切回第四阶段代码 `2150d0b`，用备份覆盖 SQLite 内容（将示例路径换为本次报告的真实备份）：
+
+```powershell
+# 服务已停止；不会改 .env。恢复会丢弃备份之后的新账号/规则等修改。
+.\.venv\Scripts\python.exe -c "import sqlite3; s=sqlite3.connect('data/backup/实际备份.sqlite3'); d=sqlite3.connect('data/procurement.sqlite3'); s.backup(d); d.close(); s.close()"
+# 切回第四阶段代码后启动；不要先用第五阶段代码启动，否则会重新升级。
+.\.venv\Scripts\python.exe start.py
+```
+
+第五阶段自测无需运行正式服务、无需修改正式 `.env`：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest backend/tests -q
+.\.venv\Scripts\python.exe backend/scripts/smoke_accounts.py
+.\.venv\Scripts\python.exe backend/scripts/replay_alerts.py
+cd frontend
+npm test
+npm run build
+```
+
+`smoke_accounts.py` 先将正式库只读备份至 `data/backup/`，再复制到 `data/stage5-validation/<时间>/`，仅在副本上迁移、启动真实 HTTP 服务、注册临时 A/B、验证权限与 mock 邮件，退出后停止子服务并删除临时 `.env`。不发真实推送，不抓上游，手动抓取入口只 mock 验证权限。为触发条件，仅将副本中真实铝锭点日期变为测试当天，绝不将测试数据写回正式库。输出 `data/stage5-live.json`。历史回放同样使用临时管理员、独立账号与隔离通道。
+
+旧阶段 smoke 脚本现在均支持 `--username 管理员账号`，运行后用隐藏输入提示填写密码；不把密码放在命令行或日志。原有 `smoke_alerts.py` 仍会向已配置通道发送真实测试消息，日常自动验收请用上述 `smoke_accounts.py`。
 
 ## 卓创框架（暂缓启用）
 
@@ -93,6 +131,8 @@ $env:NPM_CONFIG_PROXY = 'http://127.0.0.1:7890'
 
 ## 接口与调度
 
+除注册/登录外，下表均需登录；抓取与来源状态仅管理员可用。提醒、日志、通道状态均只返回当前账号的数据。
+
 | 接口 | 用途 |
 | --- | --- |
 | `GET /api/health` | 返回 `{"status":"ok"}` |
@@ -101,7 +141,7 @@ $env:NPM_CONFIG_PROXY = 'http://127.0.0.1:7890'
 | `GET /api/prices/history?code=alu_a00&days=30` | 包含今天的最近 30 个自然日，按报价日期升序 |
 | `POST /api/fetch/run` | 同步执行一轮，逐源返回成功/跳过/失败；并发抓取返回 409 |
 | `GET /api/sources/status` | 来源状态、原因、最近尝试/成功时间、卓创当日额度及待接入品种 |
-| `GET /api/alerts/status` | Telegram 已配置 / 待配置，不返回凭据 |
+| `GET /api/alerts/status` | 当前账号的邮件 / Telegram 通道状态，不返回凭据 |
 | `GET /api/alerts/rules` | 规则列表、通道状态、当前报价检查原因 |
 | `POST /api/alerts/rules` | 创建规则 |
 | `PUT /api/alerts/rules/{id}` | 更新规则（含启用 / 暂停） |
@@ -109,6 +149,12 @@ $env:NPM_CONFIG_PROXY = 'http://127.0.0.1:7890'
 | `POST /api/alerts/check` | 立即检查启用规则，可能发送真实 Telegram |
 | `POST /api/alerts/test` | 发送一条通道测试消息并记录结果 |
 | `GET /api/alerts/logs?page=1&page_size=30` | 按时间倒序的发送日志（每页 1～100 条） |
+| `POST /api/auth/register`、`POST /api/auth/login` | 公开账号入口；注册永远为普通角色 |
+| `GET /api/auth/me`、`POST /api/auth/logout`、`POST /api/auth/password` | 当前账号、退出、修改密码 |
+| `GET /api/me/push-settings`、`PUT /api/me/push-settings` | 当前账号收件邮箱与通道状态 |
+| `GET /api/settings/telegram` | 管理员查看 Telegram 配置状态 |
+| `GET /api/admin/users`、`PUT /api/admin/users/{id}`、`DELETE /api/admin/users/{id}` | 管理员列出、禁用/启用、删除普通账号 |
+| `PUT /api/admin/registration` | 管理员开关注册，JSON 为 `{"enabled":true}` |
 
 未知 `code` 返回 404，`days` 须为 1～3650，非法参数返回 422。没有数据时返回 `null` 或空历史列表。`stale=true` 表示无数据或报价日期早于北京时间今天；周末/节假日也会标记旧日期，不伪造新报价。来源抓取失败与已有价格新旧程度分别呈现，抓取失败不会删除历史记录。
 
@@ -135,9 +181,9 @@ APScheduler 在**每天 15:30，Asia/Shanghai** 触发，服务启动不自动�
 
 首次启动自动建表并同步 11 个品种。数据库为 `data/procurement.sqlite3`，包含 `commodities`、`price_points`，以及运行状态表 `source_states`、额度表 `source_runs`。第三阶段自动增建 `alert_rules` 和 `push_logs`，不改动已有价格和额度。不要删除额度表来重复触发卓创。
 
-## Telegram 提醒
+## Telegram 提醒（管理员）
 
-仍使用 `python start.py` 启动；打开 <http://127.0.0.1:8000/#/alerts> 管理规则，<http://127.0.0.1:8000/#/push-logs> 查看日志和发送测试。手机宽度也可通过导航进入这两个页面。
+仍使用 `python start.py` 启动并登录；打开 <http://127.0.0.1:8000/#/alerts> 管理自己的规则，<http://127.0.0.1:8000/#/push-logs> 查看自己的日志和发送测试。管理员通道为 Telegram，普通账号改走邮箱；个人邮箱在 `/#/push-settings` 配置。手机宽度也可通过导航进入。
 
 在根目录 `.env` 填写下列键，示例模板为 `.env.example`；不要提交真实值：
 
@@ -154,7 +200,7 @@ TELEGRAM_CHAT_ID=
 
 行情抓取完成后独立检查一次，另每 5 分钟检查一次；页面“立即检查规则”也可检查现有数据库，不请求上游。服务必须保持运行，不补发旧日提醒。推送通道异常不改变行情入库结果。
 
-同规则同品种在**北京时间自然日最多尝试一次**：`push_logs` 的唯一约束在请求前提交，因此手动检查、定时任务、并发、重启和修改阈值共用额度。未配置不占额度；已发起请求的失败、超时和中断也占额度，不自动重试，以免送达未知时重复发送。删除规则后日志保留，新增规则使用新编号；不同规则独立计数。测试推送不占规则额度，每次点击会独立测试。
+同用户同规则同品种同通道在**北京时间自然日最多尝试一次**，详细去重与待配置记录行为见第五阶段说明。删除规则后日志保留，新增规则使用新编号；不同用户和不同规则独立计数。测试推送不占规则额度，每次点击会独立测试。
 
 通过 [Telegram Bot API sendMessage](https://core.telegram.org/bots/api#sendmessage) 发送纯文本，超时 15 秒、不跟随跳转、不自动重试。收到 HTTP 200、`ok=true` 和有效 `message_id` 才标记 `sent` / 发送成功；此状态表示 Telegram 已接受，实际收信应在目标会话核对。`failed` 表示明确未确认成功，`unknown` 表示送达未知；`sending` 若在进程中断后残留，也按送达未知处理，不再次发送。日志保留时间、规则编号、内容、结果和 Telegram 消息编号，不保存 token 或 chat_id。需要代理时，按前述方法在**启动服务前**设置 HTTPS_PROXY 和 NO_PROXY，再重启服务。
 
@@ -172,11 +218,16 @@ Linux 对应使用 `.venv/bin/python`。测试使用临时 SQLite 和隔离响�
 也可逐个检查：
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/api/health
-Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/fetch/run
-Invoke-RestMethod http://127.0.0.1:8000/api/prices/latest | ConvertTo-Json -Depth 8
-Invoke-RestMethod 'http://127.0.0.1:8000/api/prices/history?code=alu_a00&days=30' | ConvertTo-Json -Depth 8
-Invoke-RestMethod http://127.0.0.1:8000/api/sources/status | ConvertTo-Json -Depth 8
+$credential = Get-Credential -Message '采购行情管理员账号（密码不回显）'
+$loginBody = @{ username=$credential.UserName; password=$credential.GetNetworkCredential().Password } | ConvertTo-Json
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/auth/login -ContentType 'application/json' -Body $loginBody -SessionVariable procurementSession
+$loginBody = $null
+Invoke-RestMethod http://127.0.0.1:8000/api/health -WebSession $procurementSession
+Invoke-RestMethod http://127.0.0.1:8000/api/prices/latest -WebSession $procurementSession | ConvertTo-Json -Depth 8
+Invoke-RestMethod 'http://127.0.0.1:8000/api/prices/history?code=alu_a00&days=30' -WebSession $procurementSession | ConvertTo-Json -Depth 8
+Invoke-RestMethod http://127.0.0.1:8000/api/sources/status -WebSession $procurementSession | ConvertTo-Json -Depth 8
+# 需要实际抓取才执行，随后会检查提醒并可能推送：
+# Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/fetch/run -WebSession $procurementSession
 ```
 
 第二阶段只读全站验收（先运行 `start.py`），随后执行页面与 SVG 组件自测：
@@ -228,4 +279,4 @@ docker compose up -d
 
 默认绑定服务器 `127.0.0.1:8000`，通过 SSH 隧道访问；备份、迁移、停止、回滚及网络要求见部署文档。需要 Docker Compose 2.17+。本机无 Docker，容器构建/运行尚未验证。
 
-阶段交付记录见 [STAGE1_REPORT.md](STAGE1_REPORT.md)、[STAGE2_REPORT.md](STAGE2_REPORT.md)、[STAGE3_REPORT.md](STAGE3_REPORT.md)、[STAGE4_REPORT.md](STAGE4_REPORT.md)。本次停在第四阶段，不进入下一阶段。
+阶段交付记录见 [STAGE1_REPORT.md](STAGE1_REPORT.md)、[STAGE2_REPORT.md](STAGE2_REPORT.md)、[STAGE3_REPORT.md](STAGE3_REPORT.md)、[STAGE4_REPORT.md](STAGE4_REPORT.md)、[STAGE5_REPORT.md](STAGE5_REPORT.md)。本次停在第五阶段，等待确认。

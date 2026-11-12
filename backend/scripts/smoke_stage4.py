@@ -8,14 +8,17 @@ import re
 from zoneinfo import ZoneInfo
 
 import httpx
+from smoke_auth import add_auth_arguments, login
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_auth_arguments(parser)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     args = parser.parse_args()
     results = {}
     with httpx.Client(base_url=args.base_url, trust_env=False, timeout=30) as client:
+        login(client, args)
         def get(path, **kwargs):
             response = client.get(path, **kwargs)
             response.raise_for_status()

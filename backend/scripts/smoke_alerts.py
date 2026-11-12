@@ -5,13 +5,16 @@ import json
 from pathlib import Path
 
 import httpx
+from smoke_auth import add_auth_arguments, login
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_auth_arguments(parser)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     args = parser.parse_args()
     with httpx.Client(base_url=args.base_url, timeout=30, trust_env=False) as client:
+        login(client, args)
         assert client.get("/").status_code == 200
         assert client.get("/api/health").json() == {"status": "ok"}
         channel = client.get("/api/alerts/status").json()
@@ -33,13 +36,12 @@ def main():
         assert test.status_code == 200
         test = test.json()
         logs = client.get("/api/alerts/logs").json()
-        assert logs["items"][0]["id"] == test["id"]
-        if channel["status"] == "pending_configuration":
-            assert test["status"] == "pending_configuration" and test["telegram_message_id"] is None
-            verdict = "待配置；真实发送暂不验收，不计失败"
-        else:
-            assert test["status"] == "sent", f"真实通道测试未确认成功：{test['detail']}"
-            verdict = "Telegram API 已接受测试消息；实际收信请在目标会话核对"
+        deliveries = test.get("results", [test])
+        assert {r["id"] for r in deliveries}.issubset({r["id"] for r in logs["items"]})
+        for delivery in deliveries:
+            expected = channel["channels"][delivery["channel"]]["status"]
+            assert delivery["status"] == ("pending_configuration" if expected == "pending_configuration" else "sent"), delivery["detail"]
+        verdict = "逐通道验证完成：待配置如实记录；sent 表示通道已接受，实际收信需核对"
     output = {"base_url": args.base_url, "crud": "passed", "channel": channel, "test": test, "verdict": verdict}
     path = Path(__file__).resolve().parents[2] / "data/stage3-live.json"
     path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")

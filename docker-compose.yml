@@ -2,7 +2,7 @@ name: procurement
 
 services:
   web:
-    image: procurement-website:stage4
+    image: procurement-website:stage5
     build:
       # 构建上下文只包含代码目录，根目录 .env 和 data 不会送入构建。
       context: ./backend
@@ -32,7 +32,7 @@ services:
         CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
     init: true
     restart: unless-stopped
-    # 单人站点仅绑定服务器回环地址，通过 SSH 隧道访问。
+    # 默认绑定回环地址；站内仍要求账号登录。
     ports:
       - "127.0.0.1:8000:8000"
     environment:
@@ -51,7 +51,8 @@ services:
     pids_limit: 128
     stop_grace_period: 90s
     healthcheck:
-      test: ["CMD", "python", "-c", "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)) == {'status':'ok'}"]
+      # 匿名健康接口也受保护；401 表示 HTTP 服务正常且认证门禁有效。
+      test: ["CMD", "python", "-c", "import urllib.request,urllib.error; exec('try:\\n urllib.request.urlopen(\"http://127.0.0.1:8000/api/health\", timeout=5)\\n raise SystemExit(1)\\nexcept urllib.error.HTTPError as e:\\n assert e.code == 401')"]
       interval: 30s
       timeout: 10s
       start_period: 30s

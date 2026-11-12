@@ -1,11 +1,13 @@
 export async function getJson(path, signal) {
   const response = await fetch(path, { signal, headers: { Accept: 'application/json' } })
+  if (response.status === 401 && path !== '/api/auth/me') window.location.assign('/login')
   if (!response.ok) throw new Error(`请求失败（HTTP ${response.status}），请稍后重试。`)
   return response.json()
 }
 
 export async function mutateJson(path, method = 'POST', body) {
   const response = await fetch(path, { method, headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
+  if (response.status === 401 && !path.startsWith('/api/auth/')) window.location.assign('/login')
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
     throw new Error(typeof data.detail === 'string' ? data.detail : `保存或操作失败（HTTP ${response.status}），请检查输入后重试。`)

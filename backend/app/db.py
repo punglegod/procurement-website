@@ -1,8 +1,12 @@
-from sqlalchemy import create_engine, event
+from datetime import datetime
+from pathlib import Path
+import sqlite3
+
+from sqlalchemy import create_engine, event, inspect, select
 from sqlalchemy.orm import sessionmaker
 
 from .config import COMMODITIES, DATA_DIR, SOURCES
-from .models import Base, Commodity, SourceState
+from .models import Base, Commodity, SourceState, User, SiteSetting, AlertRule, PushLog
 
 
 def make_engine(url: str):
@@ -24,11 +28,66 @@ SessionLocal = sessionmaker(engine, expire_on_commit=False)
 
 
 def initialize_database(db_engine=engine):
-    Base.metadata.create_all(db_engine)
-    with sessionmaker(db_engine)() as session:
-        for item in COMMODITIES:
-            session.merge(Commodity(**vars(item)))
-        for source in SOURCES:
-            if session.get(SourceState, source) is None:
-                session.add(SourceState(source=source))
-        session.commit()
+    from .auth import hash_password, validate_username
+    from .config import read_account_settings
+
+    tables = inspect(db_engine).get_table_names()
+    legacy = "alert_rules" in tables and "user_id" not in {c["name"] for c in inspect(db_engine).get_columns("alert_rules")}
+    first_upgrade = bool(tables) and "users" not in tables
+    backup = None
+    # SQLite backup API 包含 WAL 中已提交的数据；备份完成后才允许任何结构变更。
+    if first_upgrade or legacy:
+        path = Path(db_engine.url.database)
+        folder = path.parent / "backup"
+        folder.mkdir(parents=True, exist_ok=True)
+        backup = folder / f"{path.stem}-pre-stage5-{datetime.now():%Y%m%d-%H%M%S-%f}.sqlite3"
+        with sqlite3.connect(path) as source, sqlite3.connect(backup) as target:
+            source.backup(target)
+
+    settings = read_account_settings()
+    with db_engine.begin() as connection:
+        # 单个事务覆盖建表、播种、旧表重建及版本记录；异常时整体回滚。
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+        Base.metadata.create_all(connection)
+        with sessionmaker(bind=connection, expire_on_commit=False)() as session:
+            admin = session.scalar(select(User).where(User.role == "admin").order_by(User.id))
+            username, password = settings["ADMIN_USERNAME"], settings["ADMIN_PASSWORD"]
+            if username and password and session.scalar(select(User).where(User.username == username)) is None:
+                validate_username(username)
+                if len(password) < 8 or len(password) > 128:
+                    raise RuntimeError("ADMIN_PASSWORD 必须为 8～128 位")
+                seeded = User(username=username, password_hash=hash_password(password), role="admin", enabled=True, created_at=datetime.now())
+                session.add(seeded)
+                session.flush()
+                admin = admin or seeded
+            if admin is None:
+                raise RuntimeError("首次启动请在项目根目录 .env 配置 ADMIN_USERNAME / ADMIN_PASSWORD；未进行数据迁移")
+            if legacy:
+                for table in (AlertRule.__table__, PushLog.__table__):
+                    sequence = connection.exec_driver_sql("SELECT seq FROM sqlite_sequence WHERE name=?", (table.name,)).scalar() if table.name == "alert_rules" else None
+                    rows = [dict(row) for row in connection.exec_driver_sql(f"SELECT * FROM {table.name}").mappings()]
+                    # 旧索引随旧表删除，再由元数据重建。
+                    connection.exec_driver_sql(f"DROP TABLE {table.name}")
+                    table.create(connection)
+                    for row in rows:
+                        row["user_id"] = admin.id
+                        if table.name == "push_logs":
+                            row.update(channel="telegram", recipient=None, provider_message_id=None)
+                        columns = ",".join(row)
+                        placeholders = ",".join("?" for _ in row)
+                        connection.exec_driver_sql(f"INSERT INTO {table.name} ({columns}) VALUES ({placeholders})", tuple(row.values()))
+                    if sequence is not None:
+                        connection.exec_driver_sql("INSERT INTO sqlite_sequence(name,seq) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name=?)", (table.name, sequence, table.name))
+                        connection.exec_driver_sql("UPDATE sqlite_sequence SET seq=MAX(seq,?) WHERE name=?", (sequence, table.name))
+            if session.get(SiteSetting, "registration_enabled") is None:
+                session.add(SiteSetting(key="registration_enabled", value="true"))
+            if backup:
+                session.merge(SiteSetting(key="stage5_backup", value=str(backup)))
+            session.merge(SiteSetting(key="schema_version", value="5"))
+            for item in COMMODITIES:
+                session.merge(Commodity(**vars(item)))
+            for source in SOURCES:
+                if session.get(SourceState, source) is None:
+                    session.add(SourceState(source=source))
+            session.commit()
+    return str(backup) if backup else None
