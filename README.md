@@ -2,12 +2,12 @@
 
 单人内部使用的原材料**现货**价格跟踪网站。包含 11 品种行情表格、搜索筛选、涨跌与过期提示、7 / 30 / 90 天历史走势，以及第三阶段的提醒规则、Telegram 推送和发送日志。FastAPI 同时提供 API 和前端构建产物，最终只运行一个服务进程。
 
-**当前决定（2026-11-12）：只跑免费源；卓创暂缓启用，不填写凭据。** 目前真实入库源为世铝网南海灵通 A00 铝锭，其余 10 个品种保留目录，等待后续免费源接入。第三阶段只增加推送服务，不扩展行情来源。
+**当前决定（2026-11-12）：只跑免费源；卓创暂缓启用，不填写凭据。** 第四阶段已逐个验证全部 11 个品种的免费公开现货源。每个品种固定一个报价口径，保留真实报价日；不补造历史。逐品种进度见 [STAGE4_PROGRESS.md](STAGE4_PROGRESS.md)，完整自测与提交限制见 [STAGE4_REPORT.md](STAGE4_REPORT.md)。
 
 ## 环境与安装
 
 - Python **3.12**、Git、Node.js **20.19+ 或 22.12+**（含 npm）。Windows / Linux 均可运行；Windows 的时区数据由 `tzdata` 提供。
-- 首次安装前端依赖需要访问 npm registry，采集免费报价需要访问世铝网。
+- 首次安装前端依赖需要访问 npm registry，采集免费报价需要访问下表列出的公开站点。
 - 已有 `frontend/dist` 时可使用 `--skip-build` 启动，无需 Node.js。
 
 以下命令均从项目根目录执行。PowerShell：
@@ -61,19 +61,33 @@ $env:NPM_CONFIG_PROXY = 'http://127.0.0.1:7890'
 
 当前不创建或填写卓创凭据；adapter 只保留第一阶段框架。以后站长明确启用时，再按根目录 `.env.example` 配置根目录 `.env` 中的 `SCI99_USER` + `SCI99_PASS` 或 `SCI99_COOKIE`。不把账号、密码、Cookie 放入日志、代码或提交；`.env`、`data/` 已被 Git 忽略。以下是保留框架的技术边界，不代表当前已启用。
 
-没有凭据时，卓创完全跳过，状态为 `pending_credentials` / **待配置凭据**，不计为失败，也不消耗当日额度。
+卓创在 `SOURCES["sci99"]["enabled"] = False` 明确休眠：无论是否误填凭据均跳过，状态为 `pending_credentials` / **待配置凭据**，不消耗当日额度。`adapters/sci99.py` 保留原框架未改动，全部品种已与其解耦；启用须另经站长明确指示与重新核定解析。
 
-ABS 当前固定口径是 **华东市场 ABS 0215A 现货均价，元/吨**。`SCI99_ABS_URL` 可指定本人有订阅权限的同口径报价页（仅接受 sci99.com 域下的 HTTPS、无查询参数/片段 URL）。解析器严格校验表头“品种、市场、牌号、价格类型、均价、单位、报价日期”，并只接受 ABS / 华东 / 0215A / 现货这一行。无法确认口径、日期或均价时拒绝入库，不从新闻正文猜数值。
+第一阶段卓创 ABS 框架曾限定 **华东市场 ABS 0215A 现货均价，元/吨**，只接受完整表头和该市场/牌号/现货行。第四阶段 ABS 使用下表中的独立免费来源；旧卓创框架不能向当前免费口径入库。历史旧来源记录保留，但不混入最新价、历史图或涨跌比较。
 
 **卓创接入边界：** 本次未提供凭据，未验证真实账号登录或 ABS 真实价格。公开产品页采用 JS 加载，官方登录 SDK 也包含 JS 与验证流程。框架只提交官网明确给出的普通 POST 登录表单；遇 JS 登录、验证码、风控、登录异常或权限不足立即停止，不模拟加密/验证码。实际接入推荐人工登录后配置 Cookie；即便配置 Cookie，也需要在本人已订阅页面上核定真实表格结构，按实际情况完善 `adapters/sci99.py` 的解析规则。当前框架不保证默认产品页能直接返回 ABS 价格，解析失败会如实显示原因。
 
-其余 9 个品种在第一阶段目录中标记 `pending_configuration`，ABS 标记 `pending_credentials`。第二阶段未改动源分工代码或接入 adapter，页面说明这些空目录等待免费源接入；旧目录中的待核定口径不代表已验证的报价。后续逐个接免费源时，须在 `backend/app/config.py` 核定市场、牌号、等级与口径，包装用纸明确限定瓦楞原纸。
+品种与来源全部维护在 `backend/app/config.py`。新源使用各自状态标识，失败只影响对应品种；同站点的不同 adapter 也遵守请求间隔。网络/5xx 最多重试一次，15 秒超时；安全检查、验证码、403/429 立即停手，不执行 JS 校验或绕过登录。
 
 卓创每个北京时间自然日最多执行一轮（含失败）。网络请求之前，SQLite `source_runs` 唯一约束先占用当日额度；重启、手动触发与定时任务共享记录。失败后当天不会再次尝试，更换凭据也不能重置额度；请次日再运行。请求间隔至少 5 秒、超时 15 秒，仅 GET 网络/5xx 失败最多重试 1 次，登录 POST 不自动重试。验证码、401/403/429、访问异常不重试。数据仅供本站内部使用。
 
 ## 免费报价口径
 
-只访问 [世铝网南海有色栏目](https://market.cnal.com/nanhai/)，定位最新的“南海有色（灵通）铝锭价格”日度文章，提取 **佛山地区（铝）/ 国产 A00 批售（送厂）/ 均价 / 元/吨**。同时校验区间与均价关系、文章标题和完整日期。不会切换到不含税、上海、长江或期货口径；上游结构变化时保留已有价格并报告失败。
+| 品种 | 公开来源 | 固定现货口径（均为元/吨） |
+| --- | --- | --- |
+| A00 铝锭 | [世铝网](https://market.cnal.com/nanhai/) | 南海灵通佛山国产 A00 批售送厂均价 |
+| ABS | [普拉司日报](https://www.plasway.com/news/market-flash-news?id=198) | 华南吉化（揭阳）0215A 现货参考价 |
+| PC | 普拉司日报 | 华南山东利华益维远 WY-111BR 现货参考价 |
+| PMMA | [塑价365](https://www.pla365.com/pmma/) | 转载生意社橡塑大宗榜现货基准价，市场均价，非牌号成交价 |
+| 碳酸锂 | [我的钢铁新能源](https://xny.mysteel.com/) | 电池级早盘 Li2CO3≥99.5% 现货中间价；不取升贴水、合约价或晚盘 |
+| DMC | [有机硅商城](https://www.yjgmall.com/news/list.php?catid=73106) | 新料主流报价区间低端，非均价；税运未注明 |
+| 硅橡胶 | 有机硅商城 | 普通生胶主流报价区间低端，非混炼胶；税运未注明 |
+| PE | 普拉司日报 | 华南中石化海南 LLDPE DFDA 7042 现货参考价 |
+| PP 粒 | 普拉司日报 | 华南福建中景石化 T30S 拉丝粒料现货参考价 |
+| BOPET | [我的钢铁公开摘要](https://m.mysteel.com/hot/1647652.html) | 江浙 12μ 印刷基膜商谈区间低端 |
+| 包装用纸 | [生意社交易平台](https://www.rawmex.cn/ppinews/) | 上海兆美 140g/m² 瓦楞原纸，上海交货报价 |
+
+普拉司未明确税运条款的现货参考价不推断税运；塑价365页面明确说明是转载来源。区间低端是原文实际发布的数值，不将自行计算的中点称作上游均价。DMC/硅橡胶取“价格统计时间”，PMMA 取结构化 `spot` 的实际日期，均不使用页面更新日冒充报价日。BOPET 仅读取无需登录的公开摘要；不访问付费隐藏值。上游标题、市场、制造商、牌号、克重、单位或表头不符时拒绝入库。
 
 每个价格点保存品种、价格、单位、报价口径、报价日期、来源标识与名称、来源 URL、北京时间抓取时间。同一品种/来源/口径/报价日使用唯一键更新，重复抓取不会制造多条日线。
 
@@ -191,4 +205,27 @@ npm test
 
 `smoke_alerts.py` 可用 `--base-url http://127.0.0.1:8010` 指定服务，输出 `data/stage3-live.json`；缺配置时标注待配置，不作为失败。已配置时会真的发送测试消息。`replay_alerts.py` 将公开历史 HTML 缓存在 `data/stage3-history/`，通过原解析器验证口径，只写临时 SQLite；隔离通道明确记录 `replayed`，不会调用 Telegram，也不修改首页历史或规则。结果为 `data/stage3-replay.json`，验证三种条件、未触发、缺前价、跨日、重启、并发与修改后的日去重。单元测试和 Vue 组件测试验证错误及待配置路径，均不向真实通道发送消息。
 
-阶段交付记录见 [STAGE1_REPORT.md](STAGE1_REPORT.md)、[STAGE2_REPORT.md](STAGE2_REPORT.md)、[STAGE3_REPORT.md](STAGE3_REPORT.md)。第三阶段完成后停下等待确认。
+第四阶段逐品种真实验证（会请求该品种公开源并入库，不调用提醒服务）：
+
+```powershell
+.\.venv\Scripts\python.exe backend/scripts/verify_stage4_source.py abs
+# code 可替换为 pc、pmma、lithium_carbonate、dmc、silicone_rubber、pe、pp、bopet、paper
+# 运行中的全站验收：只读行情，创建/编辑/删除本脚本的暂停规则，不发推送
+.\.venv\Scripts\python.exe backend/scripts/smoke_stage4.py
+```
+
+`verify_stage4_source.py` 追加 `STAGE4_PROGRESS.md`、记录 `backend/tests/evidence/{code}.json` 并缓存公开响应；仅人工续跑/验收使用，不增加定时任务。完整测试仍为 `python -m pytest backend/tests -q`、`smoke_frontend.py`、前端 `npm test`；新解析器回归使用真实公开片段，测试期间禁止真实 HTTPTransport 网络。Linux 使用 `.venv/bin/python`，所有服务脚本支持 `--base-url` 指向自定义端口。
+
+## Docker 与云服务器说明
+
+部署交付仅包含 [docker-compose.yml](docker-compose.yml) 和 [DEPLOYMENT.md](DEPLOYMENT.md)，本阶段未连接或部署服务器。Compose 使用内联多阶段构建，Python 3.12 + Node 22 构建 Vue，最终单容器单 worker，数据持久卷、只读 `.env` 文件挂载、健康检查和日志轮转。将来在目标 Linux 主机按部署文档准备 `.env` 后运行：
+
+```bash
+docker compose config --quiet
+docker compose build --pull
+docker compose up -d
+```
+
+默认绑定服务器 `127.0.0.1:8000`，通过 SSH 隧道访问；备份、迁移、停止、回滚及网络要求见部署文档。需要 Docker Compose 2.17+。本机无 Docker，容器构建/运行尚未验证。
+
+阶段交付记录见 [STAGE1_REPORT.md](STAGE1_REPORT.md)、[STAGE2_REPORT.md](STAGE2_REPORT.md)、[STAGE3_REPORT.md](STAGE3_REPORT.md)、[STAGE4_REPORT.md](STAGE4_REPORT.md)。本次停在第四阶段，不进入下一阶段。

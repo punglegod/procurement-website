@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="采购行情网站", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="采购行情网站", version="0.4.0", lifespan=lifespan)
 
 
 @app.get("/api/health")

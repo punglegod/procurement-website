@@ -51,7 +51,8 @@ describe('真实入库行情页面', () => {
     expect(row.text()).toContain(point.quote_basis)
     expect(row.text()).toContain(point.quote_date)
     expect(row.get('.source-cell a').attributes('href')).toBe(point.source_url)
-    expect(row.findAll('td')[1].text()).toBe('—')
+    const change = live.latest.items[0].change_amount
+    expect(row.findAll('td')[1].text()).toBe(change == null ? '—' : `${change > 0 ? '+' : change < 0 ? '−' : ''}${Math.abs(change).toLocaleString('zh-CN')}`)
     expect(wrapper.findAll('tbody tr')).toHaveLength(11)
     await wrapper.get('input').setValue('alu_a00')
     expect(wrapper.findAll('tbody tr')).toHaveLength(1)
@@ -61,14 +62,21 @@ describe('真实入库行情页面', () => {
 
   test('过期报价标黄；无数据品种保留空值和待配置状态', async () => {
     const wrapper = await render(MarketView)
+    // 隔离模拟首次启动无数据；真实全站响应在本阶段已有全部品种报价。
+    market.items.value[1].price_point = null
+    market.items.value[1].data_status = 'failed'
+    market.items.value[1].message = '公开源网络失败'
+    market.items.value[2].price_point = null
+    market.items.value[2].data_status = 'never_run'
     market.items.value[0].stale = true
     await flushPromises()
     expect(wrapper.findAll('tbody tr')[0].classes()).toContain('stale-row')
     expect(wrapper.findAll('tbody tr')[0].text()).toContain('过期 · 非今日报价')
-    expect(wrapper.findAll('tbody tr')[1].text()).toContain('待配置凭据')
-    expect(wrapper.findAll('tbody tr')[2].text()).toContain('免费源待接入')
+    expect(wrapper.findAll('tbody tr')[1].text()).toContain('来源异常')
+    expect(wrapper.findAll('tbody tr')[1].text()).toContain('公开源网络失败')
+    expect(wrapper.findAll('tbody tr')[2].text()).toContain('暂无入库报价')
     await wrapper.findAll('.filter-tabs button')[2].trigger('click')
-    expect(wrapper.findAll('tbody tr')).toHaveLength(10)
+    expect(wrapper.findAll('tbody tr')).toHaveLength(2)
   })
 
   test('详情页实际渲染 ECharts SVG；7/30/90 天切换保留真实单点', async () => {

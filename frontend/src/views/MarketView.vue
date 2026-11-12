@@ -22,7 +22,7 @@ const filtered = computed(() => items.value.filter(item =>
     <article class="summary-card summary-primary"><span>跟踪品种</span><div class="summary-value">{{ items.length || '—' }}<small>个</small></div><p>塑料 · 化工 · 包装 · 有色金属</p><span class="card-decoration" aria-hidden="true">↗</span></article>
     <article class="summary-card"><span>已有报价</span><div class="summary-value">{{ quoted }}<small>/ {{ items.length || '—' }}</small></div><p><span class="small-dot dot-green"></span> 以实际入库数据为准</p></article>
     <article class="summary-card"><span>过期报价</span><div class="summary-value" :class="{ 'text-amber': stale }">{{ stale }}<small>个</small></div><p>{{ stale ? '黄色标记 · 请留意报价日期' : '已有报价中暂无过期数据' }}</p></article>
-    <article class="summary-card"><span>暂无报价</span><div class="summary-value">{{ items.length - quoted }}<small>个</small></div><p>等待免费数据源逐步接入</p></article>
+    <article class="summary-card"><span>暂无报价</span><div class="summary-value">{{ items.length - quoted }}<small>个</small></div><p>采集失败时保留空值并说明原因</p></article>
   </section>
 
   <section class="market-panel">
@@ -37,9 +37,9 @@ const filtered = computed(() => items.value.filter(item =>
             <td class="numeric price-cell">{{ number(item.price_point?.price) }}<small v-if="item.price_point">{{ item.price_point.unit }}</small></td>
             <td class="numeric" :class="direction(item.change_amount)" :title="item.previous_quote_date ? `对比 ${item.previous_quote_date}` : '暂无上一报价日数据'">{{ signed(item.change_amount) }}</td>
             <td class="numeric" :class="direction(item.change_percent)">{{ signed(item.change_percent, '%') }}</td>
-            <td class="basis-cell">{{ item.price_point?.quote_basis || item.quote_basis }}<small v-if="!item.price_point">{{ item.data_status === 'pending_credentials' ? '卓创暂缓启用，等待免费源接入' : '待核定免费源报价口径' }}</small></td>
+            <td class="basis-cell">{{ item.price_point?.quote_basis || item.quote_basis }}<small v-if="!item.price_point">{{ item.message }}</small></td>
             <td class="date-cell">{{ item.price_point?.quote_date || '—' }}<small v-if="item.price_point && item.stale" class="text-amber">过期 · 非今日报价</small></td>
-            <td class="source-cell"><a v-if="item.price_point && sourceUrl(item.price_point.source_url)" :href="sourceUrl(item.price_point.source_url)" target="_blank" rel="noopener noreferrer">{{ item.price_point.source_name }} <span aria-hidden="true">↗</span></a><span v-else class="muted">免费源待接入</span><small v-if="item.price_point && ['failed', 'blocked', 'interrupted'].includes(item.data_status)" class="text-amber" :title="item.message">来源异常 · 保留已有报价</small></td>
+            <td class="source-cell"><a v-if="item.price_point && sourceUrl(item.price_point.source_url)" :href="sourceUrl(item.price_point.source_url)" target="_blank" rel="noopener noreferrer">{{ item.price_point.source_name }} <span aria-hidden="true">↗</span></a><span v-else class="muted">{{ item.enabled === false ? '免费源待接入' : '暂无入库报价' }}</span><small v-if="item.price_point && ['failed', 'blocked', 'interrupted'].includes(item.data_status)" class="text-amber" :title="item.message">来源异常 · 保留已有报价</small></td>
             <td><RouterLink class="detail-link" :to="`/commodity/${item.code}`" :aria-label="`查看${item.name}走势`">↗</RouterLink></td>
           </tr>
           <tr v-if="!filtered.length"><td colspan="8" class="empty-cell">{{ loading ? '正在读取入库行情…' : items.length ? '没有符合条件的品种，请调整搜索或筛选。' : '暂无行情，请检查服务连接。' }}</td></tr>
@@ -48,5 +48,5 @@ const filtered = computed(() => items.value.filter(item =>
     </div>
     <div class="table-footer"><span>显示 {{ filtered.length }} / {{ items.length }} 个品种</span><span>“—” 表示暂无报价或缺少上一报价日数据</span></div>
   </section>
-  <div class="notice info-notice"><span class="info-icon" aria-hidden="true">i</span><p><strong>每一笔报价，都保留出处。</strong> 当前使用免费公开现货源，卓创暂缓启用；未接入品种保留空值。点击品种查看历史走势，点击来源查看原始报价。</p></div>
+  <div class="notice info-notice"><span class="info-icon" aria-hidden="true">i</span><p><strong>每一笔报价，都保留出处。</strong> 11 个品种均使用免费公开现货源，卓创暂缓启用。各品种规格与计价方式见报价口径；请留意报价日期。点击品种查看历史走势，点击来源查看原始报价。</p></div>
 </template>

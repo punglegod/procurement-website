@@ -22,7 +22,7 @@ def main():
         assert results["health"] == {"status": "ok"}
         catalog = get("/api/commodities")["items"]
         assert len(catalog) == 11
-        assert sum(item["source"] == "sci99" for item in catalog) == 10
+        assert all(item["enabled"] and item["source"] != "sci99" for item in catalog)
         results["commodity_count"] = len(catalog)
         if args.fetch:
             response = client.post("/api/fetch/run")

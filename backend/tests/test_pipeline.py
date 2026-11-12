@@ -85,8 +85,9 @@ def test_upsert_and_stale_status(factory, monkeypatch):
     assert len(rows) == 11
     assert rows[0]["stale"] is True
     assert rows[0]["price_point"]["quote_date"] == "2020-01-02"
-    assert rows[1]["data_status"] == "pending_credentials"
-    assert rows[2]["data_status"] == "pending_configuration"
+    assert rows[1]["price_point"] is None
+    assert rows[1]["data_status"] == "never_run"
+    assert rows[2]["price_point"] is None
 
 
 def test_missing_credentials_never_calls_sci99_or_uses_quota(factory, monkeypatch):
@@ -112,6 +113,8 @@ def test_daily_limit_persists_and_is_atomic(factory):
 
 
 def test_sci99_failure_isolated_and_not_retried_same_day(factory, monkeypatch):
+    # 仅隔离测试启用旧框架路径，生产配置始终休眠。
+    monkeypatch.setitem(SOURCES["sci99"], "enabled", True)
     settings = EMPTY_SETTINGS | {"SCI99_COOKIE": "test=isolated"}
     monkeypatch.setattr(service_module, "read_sci99_settings", lambda: settings)
     monkeypatch.setattr(FreeAdapter, "fetch", lambda _: [FreeAdapter.parse(FREE_HTML, URL)])
@@ -184,12 +187,11 @@ def test_sci99_cookie_fetch_parse_and_store_framework(factory):
         adapter = Sci99Adapter(settings=settings, client=client)
         adapter.interval = 0
         points = adapter.fetch()
-    FetchService(factory).store(points, "sci99")
-    with factory() as session:
-        point = session.scalar(select(PricePoint))
-        assert point.code == "abs"
-        assert point.price == Decimal("150")
-        assert point.quote_basis == COMMODITY_MAP["abs"].quote_basis
+    assert points[0].code == "abs"
+    assert points[0].price == Decimal("150")
+    # ABS 已切到免费源；旧卓创框架数据不得污染当前免费口径。
+    with pytest.raises(SourceError):
+        FetchService(factory).store(points, "sci99")
 
 
 def test_sci99_plain_form_framework():

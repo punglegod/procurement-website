@@ -1,4 +1,5 @@
 import logging
+from importlib import import_module
 import threading
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -72,7 +73,7 @@ class FetchService:
             settings = read_sci99_settings()
             for source in SOURCES:
                 if source == "sci99":
-                    if not sci99_configured(settings):
+                    if not SOURCES[source].get("enabled", True) or not sci99_configured(settings):
                         results.append({"source": source, "outcome": "skipped", "status": "pending_credentials", "message": "待配置凭据"})
                         continue
                     if not self.claim_sci99_day():
@@ -80,7 +81,13 @@ class FetchService:
                         continue
                 self.set_state(source, "running", "正在抓取")
                 try:
-                    adapter = FreeAdapter() if source == "free" else Sci99Adapter(settings=settings)
+                    if source == "free":
+                        adapter = FreeAdapter()
+                    elif source == "sci99":
+                        adapter = Sci99Adapter(settings=settings)
+                    else:
+                        module, name = SOURCES[source]["adapter"].split(":")
+                        adapter = getattr(import_module(f".adapters.{module}", package=__package__), name)()
                     points = adapter.fetch()
                     self.store(points, source)
                     self.set_state(source, "ok", f"正常：入库 {len(points)} 个价格点", success=True)
@@ -112,7 +119,7 @@ class FetchService:
         for source, config in SOURCES.items():
             state = states[source]
             status, message = state.status, state.message
-            if source == "sci99" and not sci99_configured(settings):
+            if source == "sci99" and (not config.get("enabled", True) or not sci99_configured(settings)):
                 status, message = "pending_credentials", "待配置凭据"
             elif status == "running" and not run_lock.locked():
                 status, message = "interrupted", "上次抓取被中断；卓创当天额度不会重置"

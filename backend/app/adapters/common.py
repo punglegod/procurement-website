@@ -1,5 +1,6 @@
 import re
 import time
+import threading
 from datetime import date, datetime
 from urllib.parse import urlsplit
 
@@ -46,7 +47,7 @@ def check_access(response: httpx.Response, sci99: bool = False):
         raise AccessStopped("来源发生跳转，可能需要登录，已停止")
     tree = HTMLParser(response.text)
     text = visible_text(tree)
-    if re.search(r"访问过于频繁|访问频繁|异常访问|安全验证|滑动验证|人机验证|账号异常|账户异常|风控|verify you are human", text, re.I):
+    if re.search(r"访问过于频繁|访问频繁|异常访问|安全验证|安全检查|滑动验证|人机验证|账号异常|账户异常|风控|verify you are human", text, re.I) or "HW_CHECK" in response.text:
         raise AccessStopped("触发风控或安全验证，已停止；请人工检查官网")
     if sci99 and (tree.css_first('input[name*="captcha"], input[id*="captcha"], .geetest_panel')
                   or re.search(r"请输入验证码|请完成验证|验证码错误|滑块验证", text)):
@@ -56,6 +57,9 @@ def check_access(response: httpx.Response, sci99: bool = False):
 
 
 class HttpSource:
+    _host_requests = {}
+    _pace_lock = threading.Lock()
+
     def __init__(self, client: httpx.Client | None = None, interval: float = 2.0):
         self.client = client
         self.interval = interval
@@ -64,8 +68,13 @@ class HttpSource:
     def request(self, client: httpx.Client, method: str, url: str, *, sci99=False, **kwargs):
         # 每个请求之间留出间隔；仅网络错误或服务端错误允许重试一次。
         for attempt in range(2):
-            time.sleep(max(0, self.interval - (time.monotonic() - self.last_request)))
-            self.last_request = time.monotonic()
+            # 多品种共用站点也遵守间隔，不因创建新 adapter 而连发请求。
+            host = urlsplit(url).hostname
+            with self._pace_lock:
+                previous = max(self.last_request, self._host_requests.get(host, 0.0))
+                time.sleep(max(0, self.interval - (time.monotonic() - previous)))
+                self.last_request = time.monotonic()
+                self._host_requests[host] = self.last_request
             try:
                 response = client.request(method, url, timeout=15, follow_redirects=False, **kwargs)
             except httpx.TransportError:

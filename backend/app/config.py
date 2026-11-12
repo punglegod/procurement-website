@@ -25,21 +25,35 @@ class CommodityConfig:
 
 COMMODITIES = (
     CommodityConfig("alu_a00", "南海灵通 A00 铝锭", "free", "南海灵通佛山国产A00批售（送厂）均价", enabled=True),
-    CommodityConfig("abs", "ABS", "sci99", "华东市场 ABS 0215A 现货均价", enabled=True),
-    CommodityConfig("pc", "PC", "sci99", "主流市场现货均价（具体规格待核定）"),
-    CommodityConfig("pmma", "PMMA", "sci99", "主流市场现货均价（具体规格待核定）"),
-    CommodityConfig("lithium_carbonate", "碳酸锂", "sci99", "主流市场现货均价（具体规格待核定）"),
-    CommodityConfig("dmc", "有机硅中间体（DMC）", "sci99", "主流市场现货均价（具体规格待核定）"),
-    CommodityConfig("silicone_rubber", "硅橡胶", "sci99", "主流市场现货均价（具体规格待核定）"),
-    CommodityConfig("pe", "PE", "sci99", "主流市场现货均价（具体规格待核定）"),
-    CommodityConfig("pp", "PP 粒", "sci99", "主流市场现货均价（具体规格待核定）"),
-    CommodityConfig("bopet", "BOPET", "sci99", "主流市场现货均价（具体规格待核定）"),
-    CommodityConfig("paper", "包装用纸（瓦楞原纸）", "sci99", "瓦楞原纸主流市场现货均价（具体规格待核定）"),
+    CommodityConfig("abs", "ABS", "free_abs", "普拉司华南市场 ABS 中石油吉化（揭阳）0215A 现货参考价", enabled=True),
+    CommodityConfig("pc", "PC", "free_pc", "普拉司华南市场 PC 山东利华益维远 WY-111BR 现货参考价", enabled=True),
+    CommodityConfig("pmma", "PMMA", "free_pmma", "塑价365转载生意社橡塑大宗榜 PMMA 现货基准价（市场均价，非牌号成交价）", enabled=True),
+    CommodityConfig("lithium_carbonate", "碳酸锂", "free_lithium_carbonate", "我的钢铁新能源 电池级碳酸锂（早盘）Li2CO3≥99.5% 现货中间价", enabled=True),
+    CommodityConfig("dmc", "有机硅中间体（DMC）", "free_dmc", "有机硅商城 DMC 新料现货主流报价区间低端（非均价，税运未注明）", enabled=True),
+    CommodityConfig("silicone_rubber", "硅橡胶", "free_silicone_rubber", "有机硅商城 普通生胶现货主流报价区间低端（非混炼胶，税运未注明）", enabled=True),
+    CommodityConfig("pe", "PE", "free_pe", "普拉司华南市场 LLDPE 中石化海南 DFDA 7042 现货参考价", enabled=True),
+    CommodityConfig("pp", "PP 粒", "free_pp", "普拉司华南市场 PP 福建中景石化 T30S 拉丝粒料现货参考价", enabled=True),
+    CommodityConfig("bopet", "BOPET", "free_bopet", "我的钢铁/隆众公开摘要 江浙 BOPET 12μ印刷基膜现货商谈区间低端", enabled=True),
+    CommodityConfig("paper", "包装用纸（瓦楞原纸）", "free_paper", "生意社交易平台 上海兆美纸业 140g/m² 瓦楞原纸 上海交货现货报价", enabled=True),
 )
 COMMODITY_MAP = {item.code: item for item in COMMODITIES}
 SOURCES = {
     "free": {"name": "世铝网（南海灵通公开报价）", "url": "https://market.cnal.com/nanhai/"},
-    "sci99": {"name": "卓创资讯", "url": "https://ochem.sci99.com/product/abs"},
+    "sci99": {"name": "卓创资讯", "url": "https://ochem.sci99.com/product/abs", "enabled": False},
+    "free_abs": {"name": "普拉司网", "url": "https://www.plasway.com/news/market-flash-news?id=198",
+                 "adapter": "abs:ABSAdapter", "product": "ABS", "grade": "0215A/中石油吉化（揭阳）"},
+    "free_pc": {"name": "普拉司网", "url": "https://www.plasway.com/news/market-flash-news?id=198",
+                "adapter": "pc:PCAdapter", "product": "PC", "grade": "WY-111BR/山东利华益维远"},
+    "free_pmma": {"name": "塑价365（原始来源：生意社）", "url": "https://www.pla365.com/pmma/", "adapter": "pmma:PMMAAdapter"},
+    "free_lithium_carbonate": {"name": "我的钢铁新能源", "url": "https://xny.mysteel.com/", "adapter": "lithium_carbonate:LithiumCarbonateAdapter"},
+    "free_dmc": {"name": "有机硅商城", "url": "https://www.yjgmall.com/news/list.php?catid=73106", "adapter": "dmc:DMCAdapter", "label": "DMC"},
+    "free_silicone_rubber": {"name": "有机硅商城", "url": "https://www.yjgmall.com/news/list.php?catid=73106", "adapter": "silicone_rubber:SiliconeRubberAdapter", "label": "普通生胶"},
+    "free_pe": {"name": "普拉司网", "url": "https://www.plasway.com/news/market-flash-news?id=198", "adapter": "pe:PEAdapter",
+                "product": "PE", "grade": "LLDPE/DFDA 7042/中石化海南", "header": "品名/型号/制造商"},
+    "free_pp": {"name": "普拉司网", "url": "https://www.plasway.com/news/market-flash-news?id=198", "adapter": "pp:PPAdapter",
+                "product": "PP", "grade": "T30S/福建中景石化"},
+    "free_bopet": {"name": "我的钢铁（隆众公开摘要）", "url": "https://m.mysteel.com/hot/1647652.html", "adapter": "bopet:BOPETAdapter"},
+    "free_paper": {"name": "生意社交易平台", "url": "https://www.rawmex.cn/index.php", "adapter": "paper:PaperAdapter"},
 }
 
 
