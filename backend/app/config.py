@@ -53,3 +53,9 @@ def read_sci99_settings() -> dict[str, str]:
 
 def sci99_configured(settings: dict[str, str]) -> bool:
     return bool(settings["SCI99_COOKIE"] or (settings["SCI99_USER"] and settings["SCI99_PASS"]))
+
+
+def read_telegram_settings() -> dict[str, str]:
+    # 每次读取根目录文件，配置修改后无需重启；不继承进程中的同名凭据。
+    values = dotenv_values(ROOT / ".env", encoding="utf-8-sig", interpolate=False)
+    return {key: (values.get(key) or "").strip() for key in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")}

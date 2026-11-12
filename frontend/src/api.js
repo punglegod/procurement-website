@@ -4,6 +4,17 @@ export async function getJson(path, signal) {
   return response.json()
 }
 
+export async function mutateJson(path, method = 'POST', body) {
+  const response = await fetch(path, { method, headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(typeof data.detail === 'string' ? data.detail : `保存或操作失败（HTTP ${response.status}），请检查输入后重试。`)
+  }
+  return response.json()
+}
+
+export const pushStatus = value => ({ sent: '发送成功', failed: '发送失败', unknown: '送达未知', sending: '处理中 / 中断后送达未知', pending_configuration: '待配置', deduplicated: '今日已尝试', skipped: '未触发 / 等待数据' }[value] || value)
+
 export const number = (value) => value == null ? '—' : new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(value)
 export const signed = (value, suffix = '') => value == null ? '—' : `${value > 0 ? '+' : value < 0 ? '−' : ''}${number(Math.abs(value))}${suffix}`
 export const direction = (value) => value > 0 ? 'up' : value < 0 ? 'down' : 'neutral'

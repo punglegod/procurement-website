@@ -1,8 +1,8 @@
 # 采购行情网站
 
-单人内部使用的原材料**现货**价格跟踪网站。第二阶段完成 Vue 3 + Vite + ECharts 前端：11 品种行情表格、搜索筛选、涨跌与过期提示、7 / 30 / 90 天历史走势。FastAPI 同时提供 API 和前端构建产物，最终只运行一个服务进程。
+单人内部使用的原材料**现货**价格跟踪网站。包含 11 品种行情表格、搜索筛选、涨跌与过期提示、7 / 30 / 90 天历史走势，以及第三阶段的提醒规则、Telegram 推送和发送日志。FastAPI 同时提供 API 和前端构建产物，最终只运行一个服务进程。
 
-**当前决定（2026-11-12）：只跑免费源；卓创暂缓启用，不填写凭据。** 目前真实入库源为世铝网南海灵通 A00 铝锭，其余 10 个品种保留目录，等待后续免费源接入。本阶段不扩展抓取源或 Telegram 提醒。
+**当前决定（2026-11-12）：只跑免费源；卓创暂缓启用，不填写凭据。** 目前真实入库源为世铝网南海灵通 A00 铝锭，其余 10 个品种保留目录，等待后续免费源接入。第三阶段只增加推送服务，不扩展行情来源。
 
 ## 环境与安装
 
@@ -87,6 +87,14 @@ ABS 当前固定口径是 **华东市场 ABS 0215A 现货均价，元/吨**。`S
 | `GET /api/prices/history?code=alu_a00&days=30` | 包含今天的最近 30 个自然日，按报价日期升序 |
 | `POST /api/fetch/run` | 同步执行一轮，逐源返回成功/跳过/失败；并发抓取返回 409 |
 | `GET /api/sources/status` | 来源状态、原因、最近尝试/成功时间、卓创当日额度及待接入品种 |
+| `GET /api/alerts/status` | Telegram 已配置 / 待配置，不返回凭据 |
+| `GET /api/alerts/rules` | 规则列表、通道状态、当前报价检查原因 |
+| `POST /api/alerts/rules` | 创建规则 |
+| `PUT /api/alerts/rules/{id}` | 更新规则（含启用 / 暂停） |
+| `DELETE /api/alerts/rules/{id}` | 删除规则，保留历史推送日志 |
+| `POST /api/alerts/check` | 立即检查启用规则，可能发送真实 Telegram |
+| `POST /api/alerts/test` | 发送一条通道测试消息并记录结果 |
+| `GET /api/alerts/logs?page=1&page_size=30` | 按时间倒序的发送日志（每页 1～100 条） |
 
 未知 `code` 返回 404，`days` 须为 1～3650，非法参数返回 422。没有数据时返回 `null` 或空历史列表。`stale=true` 表示无数据或报价日期早于北京时间今天；周末/节假日也会标记旧日期，不伪造新报价。来源抓取失败与已有价格新旧程度分别呈现，抓取失败不会删除历史记录。
 
@@ -111,7 +119,30 @@ npm run dev
 
 APScheduler 在**每天 15:30，Asia/Shanghai** 触发，服务启动不自动抓取。仅服务进程运行时调度有效，不补抓停机期间错过的行情；跨源隔离失败，一个源出错后仍继续处理其他源。进程内抓取锁防止手动和定时重叠，卓创额外使用数据库日额度约束。请使用单 worker，不要同时启动多个服务进程，以免免费源重复请求。
 
-首次启动自动建表并同步 11 个品种。数据库为 `data/procurement.sqlite3`，包含 `commodities`、`price_points`，以及运行状态表 `source_states`、额度表 `source_runs`。不要删除额度表来重复触发卓创。
+首次启动自动建表并同步 11 个品种。数据库为 `data/procurement.sqlite3`，包含 `commodities`、`price_points`，以及运行状态表 `source_states`、额度表 `source_runs`。第三阶段自动增建 `alert_rules` 和 `push_logs`，不改动已有价格和额度。不要删除额度表来重复触发卓创。
+
+## Telegram 提醒
+
+仍使用 `python start.py` 启动；打开 <http://127.0.0.1:8000/#/alerts> 管理规则，<http://127.0.0.1:8000/#/push-logs> 查看日志和发送测试。手机宽度也可通过导航进入这两个页面。
+
+在根目录 `.env` 填写下列键，示例模板为 `.env.example`；不要提交真实值：
+
+```dotenv
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+```
+
+向 Telegram 的 `@BotFather` 创建 Bot 获取 token，先向自己的 Bot 发送 `/start`，再填写目标会话的 chat_id。配置只从根目录 `.env` 读取，修改后下次检查立即生效，无需重启；不从进程的同名变量读取，也不在页面、接口、日志中显示凭据。缺少任一项时显示 `pending_configuration` / **待配置**；测试按钮会记录待配置日志，不发网络请求，不占规则日额度。已配置只表示字段齐全，发送结果仍需查看日志。
+
+规则可为全部 11 个品种预设，提交 JSON 为 `{"code":"alu_a00","kind":"daily_change","threshold":1,"enabled":true}`。`kind` 支持 `daily_change`（日涨跌幅绝对值 ≥ X%，包含涨和跌）、`price_gte`（价格 ≥ 阈值）、`price_lte`（价格 ≤ 阈值）；阈值必须大于 0，最多四位小数。价格阈值单位随品种展示。规则保存来源、报价口径和单位快照，配置变化后先跳过，需编辑保存重新确认。
+
+日涨跌幅比较同品种 / 来源 / 口径 / 单位的前一个真实报价日，跨周末仍取上一报价日；以未四舍五入值比较绝对值，等于阈值也触发。没有上一报价日时只跳过涨跌规则，到价规则仍可判断。仅北京时间当天的报价参与发送；暂无报价、旧报价、未来报价均不发提醒。页面规则列表说明当前跳过原因，暂停规则不参与检查。
+
+行情抓取完成后独立检查一次，另每 5 分钟检查一次；页面“立即检查规则”也可检查现有数据库，不请求上游。服务必须保持运行，不补发旧日提醒。推送通道异常不改变行情入库结果。
+
+同规则同品种在**北京时间自然日最多尝试一次**：`push_logs` 的唯一约束在请求前提交，因此手动检查、定时任务、并发、重启和修改阈值共用额度。未配置不占额度；已发起请求的失败、超时和中断也占额度，不自动重试，以免送达未知时重复发送。删除规则后日志保留，新增规则使用新编号；不同规则独立计数。测试推送不占规则额度，每次点击会独立测试。
+
+通过 [Telegram Bot API sendMessage](https://core.telegram.org/bots/api#sendmessage) 发送纯文本，超时 15 秒、不跟随跳转、不自动重试。收到 HTTP 200、`ok=true` 和有效 `message_id` 才标记 `sent` / 发送成功；此状态表示 Telegram 已接受，实际收信应在目标会话核对。`failed` 表示明确未确认成功，`unknown` 表示送达未知；`sending` 若在进程中断后残留，也按送达未知处理，不再次发送。日志保留时间、规则编号、内容、结果和 Telegram 消息编号，不保存 token 或 chat_id。需要代理时，按前述方法在**启动服务前**设置 HTTPS_PROXY 和 NO_PROXY，再重启服务。
 
 ## 自测
 
@@ -144,4 +175,20 @@ npm test
 
 `smoke_frontend.py` 检查首页、构建资源、API 路由、11 品种、铝锭真实报价和 7 / 30 / 90 天历史，导出忽略提交的 `data/stage2-live.json`；`npm test` 读取此真实响应验收组件，包含 ECharts SVG 实际渲染、时间切换、搜索筛选、黄标、空历史、失败重试、并发响应防覆盖。自测通过后输出 `data/stage2-qa/alu-a00-chart.svg`。这些脚本不会写入价格库或触发抓取。服务非默认端口时给脚本加 `--base-url http://127.0.0.1:8010`。
 
-第一阶段交付记录见 [STAGE1_REPORT.md](STAGE1_REPORT.md)，第二阶段变更与自测结果见 [STAGE2_REPORT.md](STAGE2_REPORT.md)。第二阶段完成后停下等待确认。
+第三阶段自测：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest backend/tests -q
+# 服务启动后执行：创建/编辑/删除本脚本的暂停规则，发送一次真实通道测试
+.\.venv\Scripts\python.exe backend/scripts/smoke_alerts.py
+# 首次回放下载最近三个公开真实报价日；网络需要时先配置 HTTPS_PROXY
+.\.venv\Scripts\python.exe backend/scripts/replay_alerts.py --download-history
+# 后续复用历史 HTML 缓存，无网络请求
+.\.venv\Scripts\python.exe backend/scripts/replay_alerts.py
+cd frontend
+npm test
+```
+
+`smoke_alerts.py` 可用 `--base-url http://127.0.0.1:8010` 指定服务，输出 `data/stage3-live.json`；缺配置时标注待配置，不作为失败。已配置时会真的发送测试消息。`replay_alerts.py` 将公开历史 HTML 缓存在 `data/stage3-history/`，通过原解析器验证口径，只写临时 SQLite；隔离通道明确记录 `replayed`，不会调用 Telegram，也不修改首页历史或规则。结果为 `data/stage3-replay.json`，验证三种条件、未触发、缺前价、跨日、重启、并发与修改后的日去重。单元测试和 Vue 组件测试验证错误及待配置路径，均不向真实通道发送消息。
+
+阶段交付记录见 [STAGE1_REPORT.md](STAGE1_REPORT.md)、[STAGE2_REPORT.md](STAGE2_REPORT.md)、[STAGE3_REPORT.md](STAGE3_REPORT.md)。第三阶段完成后停下等待确认。

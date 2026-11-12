@@ -92,7 +92,14 @@ class FetchService:
                     self.set_state(source, status, message)
                     logger.warning("source=%s status=%s reason=%s", source, status, message)
                     results.append({"source": source, "outcome": "failed", "status": status, "message": message})
-            return {"results": results, "sources": self.statuses()}
+            # 入库完成后独立检查提醒；通道故障不改变抓取成功状态。
+            try:
+                from .alerts import AlertService
+                alert_result = AlertService(self.session_factory).run()
+            except Exception:
+                logger.error("行情入库完成，但提醒检查失败，请查看推送服务")
+                alert_result = {"status": "failed", "message": "提醒检查失败"}
+            return {"results": results, "sources": self.statuses(), "alerts": alert_result}
         finally:
             run_lock.release()
 

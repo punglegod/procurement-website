@@ -53,3 +53,36 @@ class SourceRun(Base):
     source: Mapped[str] = mapped_column(String(30))
     run_date: Mapped[date] = mapped_column(Date)
     started_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class AlertRule(Base):
+    __tablename__ = "alert_rules"
+    # 删除后不复用规则编号，保留日志与日额度的对应关系。
+    __table_args__ = (CheckConstraint("threshold > 0"), {"sqlite_autoincrement": True})
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(ForeignKey("commodities.code"), index=True)
+    kind: Mapped[str] = mapped_column(String(30))
+    threshold: Mapped[Decimal] = mapped_column(Numeric(14, 4))
+    enabled: Mapped[bool] = mapped_column(default=True)
+    source: Mapped[str] = mapped_column(String(30))
+    quote_basis: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class PushLog(Base):
+    __tablename__ = "push_logs"
+    __table_args__ = (UniqueConstraint("rule_id", "code", "send_day", name="uq_rule_code_send_day"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # 不设外键：删除规则后仍保留原规则编号、内容和日额度。
+    rule_id: Mapped[int | None]
+    code: Mapped[str | None] = mapped_column(String(40))
+    send_day: Mapped[date] = mapped_column(Date)
+    kind: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(30))
+    message: Mapped[str] = mapped_column(String(2000))
+    detail: Mapped[str] = mapped_column(String(300))
+    telegram_message_id: Mapped[int | None]
+    created_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
