@@ -1,0 +1,55 @@
+AUDIT LIVE_HTTP {"anonymous_health": 401, "anonymous_home": 303, "login": 200, "authenticated_health": 200, "authenticated_home": 200, "empty_price_catalog_count": 11, "source_status": 200, "oversized_json_4MiB": 200, "register": 201, "ordinary_user_admin_gate": 403, "oversized_page": 500, "logout": 200, "after_logout": 401, "isolated_server_stopped": true, "process_privilege": {"windows_elevated_admin_token": false}}
+{
+  "status": "passed",
+  "mode": "isolated_replay_no_telegram",
+  "points": [
+    {
+      "code": "alu_a00",
+      "price": 23800.0,
+      "unit": "元/吨",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "quote_date": "2026-11-10",
+      "source": "free",
+      "source_name": "世铝网（南海灵通公开报价）",
+      "source_url": "https://market.cnal.com/nanhai/2026/11-10/1794281786672033.shtml",
+      "fetched_at": "2026-11-12T15:52:27+08:00"
+    },
+    {
+      "code": "alu_a00",
+      "price": 23230.0,
+      "unit": "元/吨",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "quote_date": "2026-11-11",
+      "source": "free",
+      "source_name": "世铝网（南海灵通公开报价）",
+      "source_url": "https://market.cnal.com/nanhai/2026/11-11/1794368242672095.shtml",
+      "fetched_at": "2026-11-12T15:52:27+08:00"
+    },
+    {
+      "code": "alu_a00",
+      "price": 23800.0,
+      "unit": "元/吨",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "quote_date": "2026-11-12",
+      "source": "free",
+      "source_name": "世铝网（南海灵通公开报价）",
+      "source_url": "https://market.cnal.com/nanhai/2026/11-12/1794454767672170.shtml",
+      "fetched_at": "2026-11-12T15:52:27+08:00"
+    }
+  ],
+  "daily_change_absolute_percent": "2.453723633232888506241928541",
+  "checks": [
+    "涨跌幅与两种到价条件触发（到价含等号）",
+    "未达到阈值不触发",
+    "首日缺前价跳过",
+    "跨日额度重置",
+    "进程重建后同日去重",
+    "四路并发去重",
+    "修改规则不重置额度",
+    "第二账号独立触发、去重、规则和日志隔离"
+  ],
+  "isolated_messages": 8
+}
+证据：D:\Project\procurement-website\.tools\audit-live-a4ye02fg\data\stage3-replay.json
+AUDIT REPLAY {"status": "passed", "mode": "isolated_replay_no_telegram", "isolated_messages": 8, "checks": ["涨跌幅与两种到价条件触发（到价含等号）", "未达到阈值不触发", "首日缺前价跳过", "跨日额度重置", "进程重建后同日去重", "四路并发去重", "修改规则不重置额度", "第二账号独立触发、去重、规则和日志隔离"]}
+AUDIT ISOLATED_ARTIFACTS .tools\audit-live-a4ye02fg

@@ -6,7 +6,7 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 import re
 from .models import PushSetting
 
@@ -16,6 +16,8 @@ from .service import FetchBusy, FetchService, latest_prices, price_history
 from .alerts import AlertService, RuleInput, channel_status
 from .auth import router as auth_router, current_user, admin_user, resolve_user
 from . import auth
+from .security import BodyLimitMiddleware
+from .email_verification import available_user, clear_challenge, request_verification, confirm_verification
 
 logger = logging.getLogger(__name__)
 service = FetchService()
@@ -51,7 +53,7 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="采购行情网站", version="0.5.0", lifespan=lifespan)
+app = FastAPI(title="采购行情网站", version="0.7.0", lifespan=lifespan)
 app.include_router(auth_router)
 
 
@@ -80,6 +82,10 @@ async def protect_site(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     return response
+
+
+# 最外层先限制正文，避免大 JSON 先被其他中间件或 Pydantic 全量读取。
+app.add_middleware(BodyLimitMiddleware)
 
 
 @app.get("/api/health")
@@ -148,13 +154,13 @@ def delete_alert_rule(rule_id: int, user=Depends(current_user)):
 
 
 @app.get("/api/alerts/logs")
-def alert_logs(page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=100), user=Depends(current_user)):
+def alert_logs(page: int = Query(1, ge=1, le=100000), page_size: int = Query(30, ge=1, le=100), user=Depends(current_user)):
     return alerts.logs(page, page_size, user_id=user.id)
 
 
 @app.post("/api/alerts/test")
-def test_alert(user=Depends(current_user)):
-    return alerts.test(user_id=user.id)
+def test_alert(request: Request, user=Depends(current_user)):
+    return alerts.test(user_id=user.id, client_ip=request.client.host if request.client else "unknown")
 
 
 @app.post("/api/alerts/check")
@@ -184,14 +190,40 @@ class EmailInput(BaseModel):
 def push_settings(user=Depends(current_user)):
     with auth.SessionLocal() as session:
         setting = session.get(PushSetting, user.id)
-        return {"user_id": user.id, "email": setting.email if setting else "", "channel": alerts.status(user.id)}
+        return {"user_id": user.id, "email": setting.email if setting else "",
+                "email_verified": bool(setting and setting.email_verified_at), "channel": alerts.status(user.id)}
 
 
 @app.put("/api/me/push-settings")
 def save_push_settings(data: EmailInput, user=Depends(current_user)):
     with auth.SessionLocal() as session:
-        session.merge(PushSetting(user_id=user.id, email=data.email))
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+        available_user(session, user.id)
+        setting = session.get(PushSetting, user.id)
+        if setting is None:
+            setting = PushSetting(user_id=user.id, email=data.email)
+            session.add(setting)
+        elif setting.email != data.email:
+            setting.email = data.email
+            setting.email_verified_at = None
+            clear_challenge(setting)
         session.commit()
+    return push_settings(user)
+
+
+class VerificationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(pattern=r"^[0-9]{8}$")
+
+
+@app.post("/api/me/email-verification/request")
+def send_email_verification(request: Request, user=Depends(current_user)):
+    return request_verification(alerts, user.id, request.client.host if request.client else "unknown")
+
+
+@app.post("/api/me/email-verification/confirm")
+def confirm_email_verification(data: VerificationInput, request: Request, user=Depends(current_user)):
+    confirm_verification(alerts, user.id, request.client.host if request.client else "unknown", data.code)
     return push_settings(user)
 
 

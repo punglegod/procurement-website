@@ -1,0 +1,25 @@
+npm notice run procurement-website@0.2.0 build
+npm notice run vite build
+vite v7.3.8 building client environment for production...
+transforming...
+✓ 626 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                             0.64 kB │ gzip:   0.43 kB
+dist/assets/index-DxB-igCP.css             18.05 kB │ gzip:   4.77 kB
+dist/assets/AccountView-DddG3PI0.js         1.36 kB │ gzip:   0.80 kB
+dist/assets/SettingsView-Dg_sxPKq.js        1.72 kB │ gzip:   1.04 kB
+dist/assets/AuthView-DPWXm5BD.js            1.92 kB │ gzip:   1.19 kB
+dist/assets/UsersView-BEt1op6k.js           2.19 kB │ gzip:   1.11 kB
+dist/assets/PushLogsView-CJfSGqTQ.js        4.02 kB │ gzip:   2.04 kB
+dist/assets/PushSettingsView-BNiWeOLX.js    4.85 kB │ gzip:   2.20 kB
+dist/assets/AlertsView-SHMyyByH.js          6.07 kB │ gzip:   2.88 kB
+dist/assets/DetailView-i-FSsyR2.js          7.48 kB │ gzip:   3.56 kB
+dist/assets/index-DDCHoFiE.js             112.99 kB │ gzip:  44.18 kB
+dist/assets/echarts-DJOQSkbe.js           503.18 kB │ gzip: 172.70 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.99s

@@ -1,0 +1,6 @@
+{
+  "staged_files_scanned": 87,
+  "configured_secret_exact_matches": [],
+  "out_of_scope_staged_paths": [],
+  "scope": "staged text only; exact matching of nonempty configured values >=6 characters; no secret values emitted"
+}

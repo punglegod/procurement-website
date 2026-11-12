@@ -1,0 +1,20 @@
+
+ RUN  v4.1.12 D:/Project/procurement-website/frontend
+
+stdout | ../backend/tests/audit_frontend.test.js > STAGE7 F1 初始慢读取期间禁止保存，晚到响应不会覆盖编辑
+F1 FIXED: initial_save_blocked=true; delayed_GET_preserves_edit=true; saved_and_displayed=new@example.com
+
+stdout | ../backend/tests/audit_frontend.test.js > STAGE7 F2 翻页失败保留原页码和原页数据
+F2 FIXED: failed_page=2; footer=第 1 页; rows=PAGE_ONE_MESSAGE; retry_enabled=true
+
+stdout | ../backend/tests/audit_frontend.test.js > AUDIT XSS 日志/规则 HTML 按文本转义，危险链接被拦截
+XSS: inserted_html_elements=0; rejected_protocols=javascript,data,file,vbscript
+
+ ✓ ../backend/tests/audit_frontend.test.js > STAGE7 F1 初始慢读取期间禁止保存，晚到响应不会覆盖编辑 45ms
+ ✓ ../backend/tests/audit_frontend.test.js > STAGE7 F2 翻页失败保留原页码和原页数据 30ms
+ ✓ ../backend/tests/audit_frontend.test.js > AUDIT XSS 日志/规则 HTML 按文本转义，危险链接被拦截 16ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  16:34:32
+   Duration  1.07s (transform 144ms, setup 0ms, import 283ms, tests 92ms, environment 535ms)

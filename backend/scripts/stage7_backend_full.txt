@@ -1,0 +1,76 @@
+..............................................AUDIT AB_MATRIX {"A_resources_unchanged": true, "B_DELETE_A_log_id": 405, "B_DELETE_A_setting_id": 405, "B_GET_A_log_id": 404, "B_GET_A_setting_id": 404, "B_PUT_A_log_id": 405, "B_PUT_A_setting_id": 405, "B_create_for_A": 422, "B_delete_A_rule": 404, "B_get_A_rule_id": 404, "B_immediate_check_owner": 3, "B_list_query_A": [2], "B_update_A_rule": 404, "B_update_settings_for_A": 422, "replay_api": 405}
+.AUDIT GUEST_ALL_SCHEMA_API {"DELETE /api/admin/users/2": 401, "DELETE /api/alerts/rules/1": 401, "GET /api/admin/users": 401, "GET /api/alerts/logs": 401, "GET /api/alerts/rules": 401, "GET /api/alerts/status": 401, "GET /api/auth/me": 401, "GET /api/commodities": 401, "GET /api/health": 401, "GET /api/me/push-settings": 401, "GET /api/prices/history": 401, "GET /api/prices/latest": 401, "GET /api/settings/telegram": 401, "GET /api/sources/status": 401, "POST /api/alerts/check": 401, "POST /api/alerts/rules": 401, "POST /api/alerts/test": 401, "POST /api/auth/logout": 401, "POST /api/auth/password": 401, "POST /api/fetch/run": 401, "POST /api/me/email-verification/confirm": 401, "POST /api/me/email-verification/request": 401, "PUT /api/admin/registration": 401, "PUT /api/admin/users/2": 401, "PUT /api/alerts/rules/1": 401, "PUT /api/me/push-settings": 401}
+AUDIT ORDINARY_GLOBAL_GATES {"DELETE /api/admin/users/2": 403, "GET /api/admin/users": 403, "GET /api/settings/telegram": 403, "GET /api/sources/status": 403, "POST /api/fetch/run": 403, "PUT /api/admin/registration": 403, "PUT /api/admin/users/2": 403}
+.AUDIT SESSION {"argon2id_m65536_t3_p4": true, "default_secure": false, "httponly": true, "max_age_604800": true, "old_token_after_delete": 401, "old_token_after_disable": 401, "old_token_after_password_change": 401, "samesite_strict": true, "stored_sha256_only": true, "token_length": 43}
+.AUDIT UNVERIFIED_UNLIMITED_EMAIL {"http_403": 20, "mock_sends_before_verification": 0, "real_external_messages": 0, "recipient_verified": false, "requests": 20, "verified_send_statuses": [200, 200, 200, 429, 429]}
+.AUDIT SESSION_LIFECYCLE {"configured_secure": true, "cookie_after_logout": 401, "expired_cookie": 401, "old_cookie_after_rotation": 401}
+.AUDIT REGISTRATION_LIMIT_FIXED {"argon2_inside_global_sqlite_write_lock": false, "http_statuses": [201, 201, 201, 201, 201, 429, 429, 429, 429, 429, 429, 429], "requests_same_ip": 12, "seconds": 0.68}
+.AUDIT ACCOUNT_LOCKOUT_FIXED {"attacker_failures": [401, 401, 401, 401, 401], "attacker_source_still_limited": 429, "correct_password_other_ip": 200}
+.AUDIT BOOTSTRAP_ON_RESTART {"admin_names": ["test_admin"], "old_admin_still_protected": true}
+.AUDIT BODY_LIMIT {"request_bytes": 4194367, "status": 413, "expected_protective_status": 413}
+.AUDIT INPUT_VALIDATION {"array_body": 422, "cross_origin": 403, "header_injection_email": 422, "invalid_decimal": 422, "malformed_json": 422, "plain_text_body": 415, "sql_code": 404, "sql_rule_id": 422, "sql_username": 422}
+AUDIT ERROR_REDACTION {"status": 500, "body": "Internal Server Error", "stack_or_internal_path": false}
+.AUDIT SSRF {"disallowed_urls_rejected": 10, "redirect_requests": 1, "internal_target_requested": false}
+AUDIT PATH_TRAVERSAL {"attempts": 5, "statuses": [404, 404, 404, 404, 404], "source_disclosed": false}
+.AUDIT_PAGINATION {"ordinary_page": 200, "ordinary_items": [], "huge_page": 422, "huge_body": "{\"detail\":[{\"type\":\"less_than_equal\",\"loc\":[\"query\",\"page\"],\"msg\":\"Input should be less than or equal to 100000\",\"input\":\"9223372036854775808\",\"ctx\":{\"le\":100000}}]}"}
+AUDIT_PAGINATION_EXCEPTION 422: page 须为 1～100000，page_size 须为 1～100
+.AUDIT_RULE_EDIT_RACE {"saved_threshold": "1000.0000", "current_price": 100, "current_condition_matches": false, "result": "skipped", "isolated_sends": 0, "daily_quota_rows": 0}
+.AUDIT_MIDNIGHT {"actual_send_dates": ["2026-11-12", "2026-11-13", "2026-11-13"], "recorded_send_days": ["2026-11-12", "2026-11-13", "2026-11-13"], "old_batch_second_rule": "skipped", "second_rule_actual_sends_on_nov13": 1, "old_quote_sent_after_midnight": false}
+..........................................................................................................................STAGE7_EMAIL_LIMIT account [200, 200, 429]
+.STAGE7_EMAIL_LIMIT ip [200, 200, 429]
+.STAGE7_EMAIL_LIMIT recipient [200, 200, 429]
+.STAGE7_EMAIL_LIMIT global [200, 200, 429]
+.....STAGE7_LOG_OWNER path=alerts reused_id=True other_owner_unchanged=True other_data_returned=False
+.STAGE7_LOG_OWNER path=verification reused_id=True other_owner_unchanged=True other_data_returned=False
+.全站地址：http://127.0.0.1:8000
+.全站地址：http://127.0.0.1:8010
+.全站地址：http://127.0.0.1:8010
+.全站地址：http://127.0.0.1:8010
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理须为逗号分隔的 IP/CIDR，不能包含通配符或空项
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理须为逗号分隔的 IP/CIDR，不能包含通配符或空项
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理须为逗号分隔的 IP/CIDR，不能包含通配符或空项
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理须为逗号分隔的 IP/CIDR，不能包含通配符或空项
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理须为逗号分隔的 IP/CIDR，不能包含通配符或空项
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理须为逗号分隔的 IP/CIDR，不能包含通配符或空项
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理须为逗号分隔的 IP/CIDR，不能包含通配符或空项
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理仅接受有效 IP/CIDR，不接受名称或端口
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理仅接受有效 IP/CIDR，不接受名称或端口
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理仅接受有效 IP/CIDR，不接受名称或端口
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理仅接受有效 IP/CIDR，不接受名称或端口
+usage: start.py [-h] [--skip-build] [--port PORT]
+                [--trusted-proxy-ips TRUSTED_PROXY_IPS]
+start.py: error: argument --trusted-proxy-ips: 可信代理仅接受有效 IP/CIDR，不接受名称或端口
+.............
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\Project\procurement-website\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_accounts.py::test_throttling_and_csrf
+  D:\Project\procurement-website\.venv\Lib\site-packages\httpx\_models.py:408: DeprecationWarning: Use 'content=<...>' to upload raw bytes/text content.
+    headers, stream = encode_request(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+207 passed, 2 warnings in 105.90s (0:01:45)

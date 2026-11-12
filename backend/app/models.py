@@ -115,6 +115,11 @@ class PushSetting(Base):
     __tablename__ = "push_settings"
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     email: Mapped[str] = mapped_column(String(254), default="")
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime)
+    verification_hash: Mapped[str | None] = mapped_column(String(64))
+    verification_salt: Mapped[str | None] = mapped_column(String(64))
+    verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime)
+    verification_attempts: Mapped[int] = mapped_column(default=0, server_default="0")
 
 
 class SiteSetting(Base):
@@ -128,3 +133,22 @@ class LoginThrottle(Base):
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     failures: Mapped[int]
     reset_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class RateLimitBucket(Base):
+    __tablename__ = "rate_limit_buckets"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    count: Mapped[int] = mapped_column(default=0)
+    reset_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+
+
+class SecurityEvent(Base):
+    __tablename__ = "security_events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    kind: Mapped[str] = mapped_column(String(64))
+    # 删除账号后保留安全记录，不保存口令、验证码、令牌或原始 IP。
+    user_id: Mapped[int | None]
+    account_hash: Mapped[str | None] = mapped_column(String(64))
+    client_hash: Mapped[str | None] = mapped_column(String(64))
+    detail: Mapped[str] = mapped_column(String(300), default="")

@@ -1,0 +1,16 @@
+{
+  "docker_cli_available": false,
+  "inline_user_nonroot": true,
+  "single_worker": true,
+  "loopback_port": [
+    "127.0.0.1:8000:8000"
+  ],
+  "data_directory_owned_by_runtime_user": true,
+  "env_read_only": true,
+  "health_command_exit_by_mock_status": {
+    "401": 0,
+    "200": 1,
+    "500": 1
+  },
+  "image_build_or_container_start": "not_run_without_docker"
+}

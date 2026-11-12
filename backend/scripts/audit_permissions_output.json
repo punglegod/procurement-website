@@ -1,0 +1,194 @@
+[
+  {
+    "Path": "D:\\Project\\procurement-website",
+    "Owner": "BUILTIN\\Administrators",
+    "Rules": [
+      {
+        "Identity": "S-1-5-21-4109933201-1583913426-1672194651-573118229",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": false
+      },
+      {
+        "Identity": "S-1-5-21-56768987-1096266491-2636860013-2646733432",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": false
+      },
+      {
+        "Identity": "DESKTOP-3BKBVTP\\CodexSandboxUsers",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": false
+      },
+      {
+        "Identity": "BUILTIN\\Administrators",
+        "Rights": "FullControl",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "BUILTIN\\Administrators",
+        "Rights": "268435456",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\SYSTEM",
+        "Rights": "FullControl",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\SYSTEM",
+        "Rights": "268435456",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\Authenticated Users",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\Authenticated Users",
+        "Rights": "-536805376",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "BUILTIN\\Users",
+        "Rights": "ReadAndExecute, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "BUILTIN\\Users",
+        "Rights": "-1610612736",
+        "Type": "Allow",
+        "Inherited": true
+      }
+    ]
+  },
+  {
+    "Path": "D:\\Project\\procurement-website\\.env",
+    "Owner": "DESKTOP-3BKBVTP\\admin",
+    "Rules": [
+      {
+        "Identity": "S-1-5-21-56768987-1096266491-2636860013-2646733432",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "DESKTOP-3BKBVTP\\CodexSandboxUsers",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "S-1-5-21-4109933201-1583913426-1672194651-573118229",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "BUILTIN\\Administrators",
+        "Rights": "FullControl",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\SYSTEM",
+        "Rights": "FullControl",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\Authenticated Users",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "BUILTIN\\Users",
+        "Rights": "ReadAndExecute, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      }
+    ]
+  },
+  {
+    "Path": "D:\\Project\\procurement-website\\data",
+    "Owner": "DESKTOP-3BKBVTP\\CodexSandboxOffline",
+    "Rules": [
+      {
+        "Identity": "S-1-5-21-56768987-1096266491-2636860013-2646733432",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "DESKTOP-3BKBVTP\\CodexSandboxUsers",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "S-1-5-21-4109933201-1583913426-1672194651-573118229",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "BUILTIN\\Administrators",
+        "Rights": "FullControl",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "BUILTIN\\Administrators",
+        "Rights": "268435456",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\SYSTEM",
+        "Rights": "FullControl",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\SYSTEM",
+        "Rights": "268435456",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\Authenticated Users",
+        "Rights": "Modify, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "NT AUTHORITY\\Authenticated Users",
+        "Rights": "-536805376",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "BUILTIN\\Users",
+        "Rights": "ReadAndExecute, Synchronize",
+        "Type": "Allow",
+        "Inherited": true
+      },
+      {
+        "Identity": "BUILTIN\\Users",
+        "Rights": "-1610612736",
+        "Type": "Allow",
+        "Inherited": true
+      }
+    ]
+  }
+]

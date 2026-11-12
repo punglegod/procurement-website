@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import ipaddress
 import os
 from pathlib import Path
 import shutil
@@ -10,6 +11,21 @@ import sys
 
 ROOT = Path(__file__).resolve().parent
 FRONTEND = ROOT / "frontend"
+
+
+def trusted_proxy_ips(value):
+    # 只接受显式 IP/CIDR，避免通配符、名称和空项意外扩大信任范围。
+    addresses = []
+    for item in value.split(","):
+        item = item.strip()
+        if not item or item == "*":
+            raise argparse.ArgumentTypeError("可信代理须为逗号分隔的 IP/CIDR，不能包含通配符或空项")
+        try:
+            address = ipaddress.ip_network(item, strict=False) if "/" in item else ipaddress.ip_address(item)
+        except ValueError:
+            raise argparse.ArgumentTypeError("可信代理仅接受有效 IP/CIDR，不接受名称或端口") from None
+        addresses.append(str(address))
+    return ",".join(addresses)
 
 
 def build_frontend():
@@ -43,6 +59,8 @@ def main():
     parser = argparse.ArgumentParser(description="采购行情全站：构建 Vue 前端，启动 FastAPI 单服务")
     parser.add_argument("--skip-build", action="store_true", help="复用 frontend/dist，无需 Node.js")
     parser.add_argument("--port", type=int, default=8000, help="本地监听端口，默认 8000")
+    parser.add_argument("--trusted-proxy-ips", type=trusted_proxy_ips, default=None,
+                        help="仅在使用受控反向代理时指定其 IP/CIDR，多个地址以逗号分隔")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("端口应在 1～65535 之间")
@@ -54,7 +72,10 @@ def main():
         import uvicorn
         os.chdir(ROOT)
         print(f"全站地址：http://127.0.0.1:{args.port}", flush=True)
-        uvicorn.run("backend.app.main:app", host="127.0.0.1", port=args.port, workers=1)
+        # 回环直连默认也不信任转发头；不继承 FORWARDED_ALLOW_IPS 的宽泛配置。
+        uvicorn.run("backend.app.main:app", host="127.0.0.1", port=args.port, workers=1,
+                    proxy_headers=args.trusted_proxy_ips is not None,
+                    forwarded_allow_ips=args.trusted_proxy_ips or "")
     except (RuntimeError, subprocess.CalledProcessError) as error:
         print(f"启动失败：{error}", file=sys.stderr)
         return 1

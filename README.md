@@ -16,6 +16,7 @@
 
 ```powershell
 python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade "pip>=26.2.0"
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
 .\.venv\Scripts\python.exe start.py
 ```
@@ -24,6 +25,7 @@ Linux / macOS：
 
 ```bash
 python3.12 -m venv .venv
+.venv/bin/python -m pip install --upgrade 'pip>=26.2.0'
 .venv/bin/python -m pip install -r backend/requirements-dev.txt
 .venv/bin/python start.py
 ```
@@ -37,6 +39,8 @@ python3.12 -m venv .venv
 .\.venv\Scripts\python.exe start.py --skip-build
 # 自定义本地端口
 .\.venv\Scripts\python.exe start.py --port 8010
+# 仅实际通过受控反代访问时显式启用；填写真实代理 IP/CIDR，禁止通配符
+.\.venv\Scripts\python.exe start.py --skip-build --trusted-proxy-ips 127.0.0.1
 ```
 
 仅运行服务时可只安装 `backend/requirements.txt`。启动脚本在本机 PATH 没有 Node 时，会识别已有 Codex runtime 的 Node；普通机器使用标准 Node.js + npm 即可。本机 npm 临时工具位于忽略提交的 `.tools/npm/`，不作为项目依赖分发。
@@ -57,9 +61,54 @@ $env:NPM_CONFIG_HTTPS_PROXY = 'http://127.0.0.1:7890'
 $env:NPM_CONFIG_PROXY = 'http://127.0.0.1:7890'
 ```
 
-默认监听 `127.0.0.1:8000`。未登录访问首页会跳到 `/login`，接口（含健康检查）返回 401；登录与注册入口及其静态脚本允许匿名加载。文档地址 <http://127.0.0.1:8000/docs> 也需要会话。普通账号调用全局设置接口返回 403。Vite 开发模式由前端路由守卫跳登录、后端接口校验权限；正式单服务同时执行页面门禁。
+默认监听 `127.0.0.1:8000`，不信任客户端 `X-Forwarded-For/Proto`（包括 SSH 隧道），以实际连接来源执行 IP 限流。只有明确使用受控反向代理才设置 `--trusted-proxy-ips`，代理必须覆盖客户端转发头；HTTPS 域名部署细节见 DEPLOYMENT.md。未登录访问首页会跳到 `/login`，接口（含健康检查）返回 401；登录与注册入口及其静态脚本允许匿名加载。文档地址 <http://127.0.0.1:8000/docs> 也需要会话。普通账号调用全局设置接口返回 403。Vite 开发模式由前端路由守卫跳登录、后端接口校验权限；正式单服务同时执行页面门禁。
 
-## 账号、个人推送与升级（第五阶段）
+## 第七阶段安全限制与邮箱验证
+
+保存邮箱后在“我的推送设置”点击发送验证码，输入邮件中的 **8 位数字**确认。验证码 15 分钟有效、最多 5 次错误尝试、一次性消费，库中只存带随机盐的摘要，不写响应或日志。换邮箱即撤销验证和旧验证码；保存同一地址不清除已验证状态。旧库邮箱升级后全部待验证。未验证时规则标 `pending_verification`、不发邮件、不占日额度；普通账号测试返回 403。管理员 Telegram 不受邮箱验证影响。缺 Resend 配置仍明确为 `pending_configuration`，不假发成功。
+
+测试邮件与验证邮件共享持久配额，包括失败/未知尝试；换地址或重启不清额度，任一维度超限即 429/Retry-After：
+
+| 维度 | 10 分钟窗口 | 24 小时窗口 |
+| --- | --- | --- |
+| 账号 | 5 | 20 |
+| 来源 IP | 10 | 100 |
+| 收件地址（大小写归一） | 3 | 10 |
+| 全站 | 50 | 500 |
+
+窗口从首次领取开始，区别于提醒的北京时间自然日额度。注册每 IP 5 次/小时、20 次/24 小时，全站 50 次/小时、200 次/24 小时；配额在哈希前领取，插入短事务再检查注册开关及唯一性。每账号最多 20 条规则，新建最多 10 条/10 分钟、50 条/24 小时；编辑不扣额度，删除不退额度。应用在解析前按实际流计数，正文上限 **16 KiB**（含 chunked），超限 413；本站没有上传接口，小型 JSON 表单无需大正文。日志分页 page 为 1～100000、page_size 为 1～100，越界 422。
+
+登录和改密各有每 IP 30 次/分钟、全站 120 次/分钟预算；同操作、来源 IP、账号组合 15 分钟最多 5 次失败/在途尝试，失败等待依次 0.25、0.5、1、2、4 秒。陌生来源失败不会锁死整个账号。哈希和校验共用 2 个并发槽，忙时 429；哈希及等待不持 SQLite 写锁。安全事件记录账号/IP 摘要与受控说明，不存密码、验证码或令牌。反向代理只应信任受控代理地址，并剥离客户端伪造的转发头。
+
+第七阶段升级先用 SQLite backup API 备份到 `data/backup/*-pre-stage7-*.sqlite3`，再事务新增邮箱验证字段、配额及安全事件表；行情、旧规则与推送日额度不变。`site_settings.stage7_backup` 记录备份；重复启动不重复迁移。第四阶段更早的库仍先按后文规则备份/迁移。自测改用下列命令，不发送真实邮件或抓取行情，旧第五阶段 smoke 仅保留为历史脚本：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --upgrade "pip>=26.2.0"
+.\.venv\Scripts\python.exe -m pytest backend/tests -q -p no:cacheprovider --basetemp=.tools/stage7-local-check
+.\.venv\Scripts\python.exe backend/scripts/smoke_stage7.py
+node frontend/node_modules/vitest/vitest.mjs run --config backend/scripts/audit_frontend.config.mjs
+# frontend 目录中仍使用 npm test 与 npm run build
+```
+
+### 管理员更换与登录恢复
+
+只有系统不存在任何 admin 时才读取 `.env` 播种。已有管理员时启动日志明确列出现有用户名；修改 `.env` 不会更名或增建管理员。通常密码轮换使用账号页改密码。确需本机更名/重设密码时，先停止服务，在根 `.env` 填入新的 ADMIN_USERNAME / ADMIN_PASSWORD，再执行维护脚本。它先备份，保留原管理员 ID、角色和资源归属，仅改用户名/密码并撤销所有旧会话；目标同名普通账号会被拒绝，不会提权。不要删除管理员行或数据库来重新播种。
+
+```powershell
+# 先停止服务；用户名不是密码，凭据不放命令行
+.\.venv\Scripts\python.exe backend/scripts/manage_admin.py replace --username 现有管理员名 --apply
+.\.venv\Scripts\python.exe start.py --skip-build
+```
+
+来源组合限流时，现有会话仍可用；等 Retry-After，或从其他可信来源登录。确需本机恢复时先停服务，只清指定管理员和来源组合，保留其他账号及全站/IP 配额（来源总量预算仍可能需等待一分钟）：
+
+```powershell
+.\.venv\Scripts\python.exe backend/scripts/manage_admin.py unlock --username 现有管理员名 --ip 127.0.0.1 --apply
+```
+
+Linux 换用 `.venv/bin/python`。容器先 `docker compose stop web`，再 `docker compose run --rm --no-deps web python backend/scripts/manage_admin.py replace --username 现有管理员名 --apply`（或 unlock），完成后 `docker compose up -d`。维护不清安全事件、不改系统权限，仅在可信本机操作。
+
+## 账号、个人推送与升级（第五阶段基础，第七阶段规则优先）
 
 管理员首次由根目录 `.env` 播种，已有同名账号的密码和角色不覆盖；开放注册只能创建 `user`。管理员可在“用户管理”禁用、启用、删除普通账号及开关注册；管理员账号受保护。禁用、删除即时撤销该账号全部会话，删除同时清理其规则、推送设置与日志。注册开关不影响已有账号登录。
 
@@ -168,7 +217,7 @@ npm run build
 
 ```powershell
 # 终端一：后端，单 worker
-.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1 --reload
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1 --reload --no-proxy-headers
 # 终端二：Vite 开发服务器，/api 代理到后端
 cd frontend
 npm ci
@@ -200,7 +249,7 @@ TELEGRAM_CHAT_ID=
 
 行情抓取完成后独立检查一次，另每 5 分钟检查一次；页面“立即检查规则”也可检查现有数据库，不请求上游。服务必须保持运行，不补发旧日提醒。推送通道异常不改变行情入库结果。
 
-同用户同规则同品种同通道在**北京时间自然日最多尝试一次**，详细去重与待配置记录行为见第五阶段说明。删除规则后日志保留，新增规则使用新编号；不同用户和不同规则独立计数。测试推送不占规则额度，每次点击会独立测试。
+同用户同规则同品种同通道在**北京时间自然日最多尝试一次**，发送前在短事务中重读条件与报价，跨午夜停止旧轮；网络请求在事务外。删除规则后日志保留，新增规则使用新编号且受创建额度限制。测试推送不占规则额度；邮件须已验证并受第七阶段共享配额限制，管理员 Telegram 测试行为保持原样。
 
 通过 [Telegram Bot API sendMessage](https://core.telegram.org/bots/api#sendmessage) 发送纯文本，超时 15 秒、不跟随跳转、不自动重试。收到 HTTP 200、`ok=true` 和有效 `message_id` 才标记 `sent` / 发送成功；此状态表示 Telegram 已接受，实际收信应在目标会话核对。`failed` 表示明确未确认成功，`unknown` 表示送达未知；`sending` 若在进程中断后残留，也按送达未知处理，不再次发送。日志保留时间、规则编号、内容、结果和 Telegram 消息编号，不保存 token 或 chat_id。需要代理时，按前述方法在**启动服务前**设置 HTTPS_PROXY 和 NO_PROXY，再重启服务。
 
@@ -279,4 +328,4 @@ docker compose up -d
 
 默认绑定服务器 `127.0.0.1:8000`，通过 SSH 隧道访问；备份、迁移、停止、回滚及网络要求见部署文档。需要 Docker Compose 2.17+。本机无 Docker，容器构建/运行尚未验证。
 
-阶段交付记录见 [STAGE1_REPORT.md](STAGE1_REPORT.md)、[STAGE2_REPORT.md](STAGE2_REPORT.md)、[STAGE3_REPORT.md](STAGE3_REPORT.md)、[STAGE4_REPORT.md](STAGE4_REPORT.md)、[STAGE5_REPORT.md](STAGE5_REPORT.md)。本次停在第五阶段，等待确认。
+阶段交付记录见 [STAGE1_REPORT.md](STAGE1_REPORT.md)、[STAGE2_REPORT.md](STAGE2_REPORT.md)、[STAGE3_REPORT.md](STAGE3_REPORT.md)、[STAGE4_REPORT.md](STAGE4_REPORT.md)、[STAGE5_REPORT.md](STAGE5_REPORT.md)、第六阶段 [AUDIT_REPORT.md](AUDIT_REPORT.md) 和 [STAGE7_REPORT.md](STAGE7_REPORT.md)。本次停在第七阶段，等待确认。

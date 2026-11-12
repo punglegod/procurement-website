@@ -1,0 +1,134 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@vue/test-utils": {
+      "name": "@vue/test-utils",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "js-beautify"
+      ],
+      "effects": [],
+      "range": ">=2.5.0",
+      "nodes": [
+        "node_modules/@vue/test-utils"
+      ],
+      "fixAvailable": true
+    },
+    "editorconfig": {
+      "name": "editorconfig",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "minimatch"
+      ],
+      "effects": [
+        "js-beautify"
+      ],
+      "range": "1.0.3 - 3.0.2",
+      "nodes": [
+        "node_modules/editorconfig"
+      ],
+      "fixAvailable": true
+    },
+    "glob": {
+      "name": "glob",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1244013,
+          "name": "glob",
+          "dependency": "glob",
+          "title": "Glob: AbortSignal cancellation bypass allows post-timeout filesystem traversal",
+          "url": "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-400"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=9.0.0 <=14.0.1"
+        },
+        "minimatch"
+      ],
+      "effects": [
+        "js-beautify"
+      ],
+      "range": "9.0.0 - 14.0.1",
+      "nodes": [
+        "node_modules/glob"
+      ],
+      "fixAvailable": true
+    },
+    "js-beautify": {
+      "name": "js-beautify",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "editorconfig",
+        "glob"
+      ],
+      "effects": [
+        "@vue/test-utils"
+      ],
+      "range": ">=1.14.9",
+      "nodes": [
+        "node_modules/js-beautify"
+      ],
+      "fixAvailable": true
+    },
+    "minimatch": {
+      "name": "minimatch",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1244623,
+          "name": "minimatch",
+          "dependency": "minimatch",
+          "title": "minimatch has potential denial of service via globparts amplification",
+          "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-405"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=7.0.0 <11.0.1"
+        }
+      ],
+      "effects": [
+        "editorconfig",
+        "glob"
+      ],
+      "range": "7.0.0 - 11.0.0",
+      "nodes": [
+        "node_modules/minimatch"
+      ],
+      "fixAvailable": true
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 5,
+      "high": 0,
+      "critical": 0,
+      "total": 5
+    },
+    "dependencies": {
+      "prod": 29,
+      "dev": 151,
+      "optional": 53,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 179
+    }
+  }
+}

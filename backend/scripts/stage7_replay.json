@@ -1,0 +1,611 @@
+{
+  "status": "passed",
+  "mode": "isolated_replay_no_telegram",
+  "points": [
+    {
+      "code": "alu_a00",
+      "price": 23800.0,
+      "unit": "元/吨",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "quote_date": "2026-11-10",
+      "source": "free",
+      "source_name": "世铝网（南海灵通公开报价）",
+      "source_url": "https://market.cnal.com/nanhai/2026/11-10/1794281786672033.shtml",
+      "fetched_at": "2026-11-12T16:36:36+08:00"
+    },
+    {
+      "code": "alu_a00",
+      "price": 23230.0,
+      "unit": "元/吨",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "quote_date": "2026-11-11",
+      "source": "free",
+      "source_name": "世铝网（南海灵通公开报价）",
+      "source_url": "https://market.cnal.com/nanhai/2026/11-11/1794368242672095.shtml",
+      "fetched_at": "2026-11-12T16:36:36+08:00"
+    },
+    {
+      "code": "alu_a00",
+      "price": 23800.0,
+      "unit": "元/吨",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "quote_date": "2026-11-12",
+      "source": "free",
+      "source_name": "世铝网（南海灵通公开报价）",
+      "source_url": "https://market.cnal.com/nanhai/2026/11-12/1794454767672170.shtml",
+      "fetched_at": "2026-11-12T16:36:36+08:00"
+    }
+  ],
+  "daily_change_absolute_percent": "2.453723633232888506241928541",
+  "rules": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "code": "alu_a00",
+      "name": "南海灵通 A00 铝锭",
+      "kind": "daily_change",
+      "threshold": 0.01,
+      "enabled": true,
+      "source": "free",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "unit": "元/吨",
+      "created_at": "2026-11-12T16:36:37+08:00",
+      "updated_at": "2026-11-12T16:36:37+08:00"
+    },
+    {
+      "id": 2,
+      "user_id": 1,
+      "code": "alu_a00",
+      "name": "南海灵通 A00 铝锭",
+      "kind": "price_gte",
+      "threshold": 23800.0,
+      "enabled": true,
+      "source": "free",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "unit": "元/吨",
+      "created_at": "2026-11-12T16:36:37+08:00",
+      "updated_at": "2026-11-12T16:36:37+08:00"
+    },
+    {
+      "id": 3,
+      "user_id": 1,
+      "code": "alu_a00",
+      "name": "南海灵通 A00 铝锭",
+      "kind": "price_lte",
+      "threshold": 23800.0,
+      "enabled": true,
+      "source": "free",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "unit": "元/吨",
+      "created_at": "2026-11-12T16:36:37+08:00",
+      "updated_at": "2026-11-12T16:36:37+08:00"
+    },
+    {
+      "id": 4,
+      "user_id": 1,
+      "code": "alu_a00",
+      "name": "南海灵通 A00 铝锭",
+      "kind": "daily_change",
+      "threshold": 3.4537,
+      "enabled": true,
+      "source": "free",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "unit": "元/吨",
+      "created_at": "2026-11-12T16:36:37+08:00",
+      "updated_at": "2026-11-12T16:36:37+08:00"
+    },
+    {
+      "id": 5,
+      "user_id": 1,
+      "code": "alu_a00",
+      "name": "南海灵通 A00 铝锭",
+      "kind": "price_gte",
+      "threshold": 23801.0,
+      "enabled": true,
+      "source": "free",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "unit": "元/吨",
+      "created_at": "2026-11-12T16:36:37+08:00",
+      "updated_at": "2026-11-12T16:36:37+08:00"
+    },
+    {
+      "id": 6,
+      "user_id": 1,
+      "code": "alu_a00",
+      "name": "南海灵通 A00 铝锭",
+      "kind": "price_lte",
+      "threshold": 23229.0,
+      "enabled": true,
+      "source": "free",
+      "quote_basis": "南海灵通佛山国产A00批售（送厂）均价",
+      "unit": "元/吨",
+      "created_at": "2026-11-12T16:36:37+08:00",
+      "updated_at": "2026-11-12T16:36:37+08:00"
+    }
+  ],
+  "trace": [
+    {
+      "day": "2026-11-10",
+      "first": [
+        {
+          "rule_id": 1,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "缺少上一报价日，无法计算日涨跌幅"
+        },
+        {
+          "rule_id": 2,
+          "user_id": 1,
+          "channel": "telegram",
+          "id": 1,
+          "recipient": null,
+          "provider_message_id": null,
+          "code": "alu_a00",
+          "kind": "rule",
+          "status": "replayed",
+          "message": "采购行情 · 现货提醒 #2\n南海灵通 A00 铝锭\n价格 23800.00 元/吨（≥ 23800.0000）\n现价：23800.00 元/吨\n报价日期：2026-11-10\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-10/1794281786672033.shtml",
+          "detail": "隔离历史回放，未调用 Telegram",
+          "telegram_message_id": null,
+          "send_day": "2026-11-10",
+          "created_at": "2026-11-10T16:00:00+08:00",
+          "finished_at": "2026-11-10T16:00:00+08:00"
+        },
+        {
+          "rule_id": 3,
+          "user_id": 1,
+          "channel": "telegram",
+          "id": 2,
+          "recipient": null,
+          "provider_message_id": null,
+          "code": "alu_a00",
+          "kind": "rule",
+          "status": "replayed",
+          "message": "采购行情 · 现货提醒 #3\n南海灵通 A00 铝锭\n价格 23800.00 元/吨（≤ 23800.0000）\n现价：23800.00 元/吨\n报价日期：2026-11-10\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-10/1794281786672033.shtml",
+          "detail": "隔离历史回放，未调用 Telegram",
+          "telegram_message_id": null,
+          "send_day": "2026-11-10",
+          "created_at": "2026-11-10T16:00:00+08:00",
+          "finished_at": "2026-11-10T16:00:00+08:00"
+        },
+        {
+          "rule_id": 4,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "缺少上一报价日，无法计算日涨跌幅"
+        },
+        {
+          "rule_id": 5,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23800.00 元/吨（≥ 23801.0000）"
+        },
+        {
+          "rule_id": 6,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23800.00 元/吨（≤ 23229.0000）"
+        }
+      ],
+      "restart_repeat": [
+        {
+          "rule_id": 1,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "缺少上一报价日，无法计算日涨跌幅"
+        },
+        {
+          "rule_id": 2,
+          "user_id": 1,
+          "channel": "telegram",
+          "status": "deduplicated",
+          "detail": "该用户该规则该通道今天已有发送尝试，跳过"
+        },
+        {
+          "rule_id": 3,
+          "user_id": 1,
+          "channel": "telegram",
+          "status": "deduplicated",
+          "detail": "该用户该规则该通道今天已有发送尝试，跳过"
+        },
+        {
+          "rule_id": 4,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "缺少上一报价日，无法计算日涨跌幅"
+        },
+        {
+          "rule_id": 5,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23800.00 元/吨（≥ 23801.0000）"
+        },
+        {
+          "rule_id": 6,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23800.00 元/吨（≤ 23229.0000）"
+        }
+      ]
+    },
+    {
+      "day": "2026-11-11",
+      "first": [
+        {
+          "rule_id": 1,
+          "user_id": 1,
+          "channel": "telegram",
+          "id": 3,
+          "recipient": null,
+          "provider_message_id": null,
+          "code": "alu_a00",
+          "kind": "rule",
+          "status": "replayed",
+          "message": "采购行情 · 现货提醒 #1\n南海灵通 A00 铝锭\n日涨跌幅 -2.3950%（绝对值 ≥ 0.0100%）\n现价：23230.00 元/吨\n报价日期：2026-11-11\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-11/1794368242672095.shtml",
+          "detail": "隔离历史回放，未调用 Telegram",
+          "telegram_message_id": null,
+          "send_day": "2026-11-11",
+          "created_at": "2026-11-11T16:00:00+08:00",
+          "finished_at": "2026-11-11T16:00:00+08:00"
+        },
+        {
+          "rule_id": 2,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23230.00 元/吨（≥ 23800.0000）"
+        },
+        {
+          "rule_id": 3,
+          "user_id": 1,
+          "channel": "telegram",
+          "id": 4,
+          "recipient": null,
+          "provider_message_id": null,
+          "code": "alu_a00",
+          "kind": "rule",
+          "status": "replayed",
+          "message": "采购行情 · 现货提醒 #3\n南海灵通 A00 铝锭\n价格 23230.00 元/吨（≤ 23800.0000）\n现价：23230.00 元/吨\n报价日期：2026-11-11\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-11/1794368242672095.shtml",
+          "detail": "隔离历史回放，未调用 Telegram",
+          "telegram_message_id": null,
+          "send_day": "2026-11-11",
+          "created_at": "2026-11-11T16:00:00+08:00",
+          "finished_at": "2026-11-11T16:00:00+08:00"
+        },
+        {
+          "rule_id": 4,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "日涨跌幅 -2.3950%（绝对值 ≥ 3.4537%）"
+        },
+        {
+          "rule_id": 5,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23230.00 元/吨（≥ 23801.0000）"
+        },
+        {
+          "rule_id": 6,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23230.00 元/吨（≤ 23229.0000）"
+        }
+      ],
+      "restart_repeat": [
+        {
+          "rule_id": 1,
+          "user_id": 1,
+          "channel": "telegram",
+          "status": "deduplicated",
+          "detail": "该用户该规则该通道今天已有发送尝试，跳过"
+        },
+        {
+          "rule_id": 2,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23230.00 元/吨（≥ 23800.0000）"
+        },
+        {
+          "rule_id": 3,
+          "user_id": 1,
+          "channel": "telegram",
+          "status": "deduplicated",
+          "detail": "该用户该规则该通道今天已有发送尝试，跳过"
+        },
+        {
+          "rule_id": 4,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "日涨跌幅 -2.3950%（绝对值 ≥ 3.4537%）"
+        },
+        {
+          "rule_id": 5,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23230.00 元/吨（≥ 23801.0000）"
+        },
+        {
+          "rule_id": 6,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23230.00 元/吨（≤ 23229.0000）"
+        }
+      ]
+    },
+    {
+      "day": "2026-11-12",
+      "first": [
+        {
+          "rule_id": 1,
+          "user_id": 1,
+          "channel": "telegram",
+          "id": 5,
+          "recipient": null,
+          "provider_message_id": null,
+          "code": "alu_a00",
+          "kind": "rule",
+          "status": "replayed",
+          "message": "采购行情 · 现货提醒 #1\n南海灵通 A00 铝锭\n日涨跌幅 +2.4537%（绝对值 ≥ 0.0100%）\n现价：23800.00 元/吨\n报价日期：2026-11-12\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-12/1794454767672170.shtml",
+          "detail": "隔离历史回放，未调用 Telegram",
+          "telegram_message_id": null,
+          "send_day": "2026-11-12",
+          "created_at": "2026-11-12T16:00:00+08:00",
+          "finished_at": "2026-11-12T16:00:00+08:00"
+        },
+        {
+          "rule_id": 2,
+          "user_id": 1,
+          "channel": "telegram",
+          "id": 6,
+          "recipient": null,
+          "provider_message_id": null,
+          "code": "alu_a00",
+          "kind": "rule",
+          "status": "replayed",
+          "message": "采购行情 · 现货提醒 #2\n南海灵通 A00 铝锭\n价格 23800.00 元/吨（≥ 23800.0000）\n现价：23800.00 元/吨\n报价日期：2026-11-12\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-12/1794454767672170.shtml",
+          "detail": "隔离历史回放，未调用 Telegram",
+          "telegram_message_id": null,
+          "send_day": "2026-11-12",
+          "created_at": "2026-11-12T16:00:00+08:00",
+          "finished_at": "2026-11-12T16:00:00+08:00"
+        },
+        {
+          "rule_id": 3,
+          "user_id": 1,
+          "channel": "telegram",
+          "id": 7,
+          "recipient": null,
+          "provider_message_id": null,
+          "code": "alu_a00",
+          "kind": "rule",
+          "status": "replayed",
+          "message": "采购行情 · 现货提醒 #3\n南海灵通 A00 铝锭\n价格 23800.00 元/吨（≤ 23800.0000）\n现价：23800.00 元/吨\n报价日期：2026-11-12\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-12/1794454767672170.shtml",
+          "detail": "隔离历史回放，未调用 Telegram",
+          "telegram_message_id": null,
+          "send_day": "2026-11-12",
+          "created_at": "2026-11-12T16:00:00+08:00",
+          "finished_at": "2026-11-12T16:00:00+08:00"
+        },
+        {
+          "rule_id": 4,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "日涨跌幅 +2.4537%（绝对值 ≥ 3.4537%）"
+        },
+        {
+          "rule_id": 5,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23800.00 元/吨（≥ 23801.0000）"
+        },
+        {
+          "rule_id": 6,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23800.00 元/吨（≤ 23229.0000）"
+        }
+      ],
+      "restart_repeat": [
+        {
+          "rule_id": 1,
+          "user_id": 1,
+          "channel": "telegram",
+          "status": "deduplicated",
+          "detail": "该用户该规则该通道今天已有发送尝试，跳过"
+        },
+        {
+          "rule_id": 2,
+          "user_id": 1,
+          "channel": "telegram",
+          "status": "deduplicated",
+          "detail": "该用户该规则该通道今天已有发送尝试，跳过"
+        },
+        {
+          "rule_id": 3,
+          "user_id": 1,
+          "channel": "telegram",
+          "status": "deduplicated",
+          "detail": "该用户该规则该通道今天已有发送尝试，跳过"
+        },
+        {
+          "rule_id": 4,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "日涨跌幅 +2.4537%（绝对值 ≥ 3.4537%）"
+        },
+        {
+          "rule_id": 5,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23800.00 元/吨（≥ 23801.0000）"
+        },
+        {
+          "rule_id": 6,
+          "user_id": 1,
+          "status": "skipped",
+          "detail": "价格 23800.00 元/吨（≤ 23229.0000）"
+        }
+      ]
+    }
+  ],
+  "concurrent_repeats": 4,
+  "isolated_messages": 8,
+  "logs": {
+    "items": [
+      {
+        "id": 7,
+        "user_id": 1,
+        "channel": "telegram",
+        "recipient": null,
+        "provider_message_id": null,
+        "rule_id": 3,
+        "code": "alu_a00",
+        "kind": "rule",
+        "status": "replayed",
+        "message": "采购行情 · 现货提醒 #3\n南海灵通 A00 铝锭\n价格 23800.00 元/吨（≤ 23800.0000）\n现价：23800.00 元/吨\n报价日期：2026-11-12\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-12/1794454767672170.shtml",
+        "detail": "隔离历史回放，未调用 Telegram",
+        "telegram_message_id": null,
+        "send_day": "2026-11-12",
+        "created_at": "2026-11-12T16:00:00+08:00",
+        "finished_at": "2026-11-12T16:00:00+08:00"
+      },
+      {
+        "id": 6,
+        "user_id": 1,
+        "channel": "telegram",
+        "recipient": null,
+        "provider_message_id": null,
+        "rule_id": 2,
+        "code": "alu_a00",
+        "kind": "rule",
+        "status": "replayed",
+        "message": "采购行情 · 现货提醒 #2\n南海灵通 A00 铝锭\n价格 23800.00 元/吨（≥ 23800.0000）\n现价：23800.00 元/吨\n报价日期：2026-11-12\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-12/1794454767672170.shtml",
+        "detail": "隔离历史回放，未调用 Telegram",
+        "telegram_message_id": null,
+        "send_day": "2026-11-12",
+        "created_at": "2026-11-12T16:00:00+08:00",
+        "finished_at": "2026-11-12T16:00:00+08:00"
+      },
+      {
+        "id": 5,
+        "user_id": 1,
+        "channel": "telegram",
+        "recipient": null,
+        "provider_message_id": null,
+        "rule_id": 1,
+        "code": "alu_a00",
+        "kind": "rule",
+        "status": "replayed",
+        "message": "采购行情 · 现货提醒 #1\n南海灵通 A00 铝锭\n日涨跌幅 +2.4537%（绝对值 ≥ 0.0100%）\n现价：23800.00 元/吨\n报价日期：2026-11-12\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-12/1794454767672170.shtml",
+        "detail": "隔离历史回放，未调用 Telegram",
+        "telegram_message_id": null,
+        "send_day": "2026-11-12",
+        "created_at": "2026-11-12T16:00:00+08:00",
+        "finished_at": "2026-11-12T16:00:00+08:00"
+      },
+      {
+        "id": 4,
+        "user_id": 1,
+        "channel": "telegram",
+        "recipient": null,
+        "provider_message_id": null,
+        "rule_id": 3,
+        "code": "alu_a00",
+        "kind": "rule",
+        "status": "replayed",
+        "message": "采购行情 · 现货提醒 #3\n南海灵通 A00 铝锭\n价格 23230.00 元/吨（≤ 23800.0000）\n现价：23230.00 元/吨\n报价日期：2026-11-11\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-11/1794368242672095.shtml",
+        "detail": "隔离历史回放，未调用 Telegram",
+        "telegram_message_id": null,
+        "send_day": "2026-11-11",
+        "created_at": "2026-11-11T16:00:00+08:00",
+        "finished_at": "2026-11-11T16:00:00+08:00"
+      },
+      {
+        "id": 3,
+        "user_id": 1,
+        "channel": "telegram",
+        "recipient": null,
+        "provider_message_id": null,
+        "rule_id": 1,
+        "code": "alu_a00",
+        "kind": "rule",
+        "status": "replayed",
+        "message": "采购行情 · 现货提醒 #1\n南海灵通 A00 铝锭\n日涨跌幅 -2.3950%（绝对值 ≥ 0.0100%）\n现价：23230.00 元/吨\n报价日期：2026-11-11\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-11/1794368242672095.shtml",
+        "detail": "隔离历史回放，未调用 Telegram",
+        "telegram_message_id": null,
+        "send_day": "2026-11-11",
+        "created_at": "2026-11-11T16:00:00+08:00",
+        "finished_at": "2026-11-11T16:00:00+08:00"
+      },
+      {
+        "id": 2,
+        "user_id": 1,
+        "channel": "telegram",
+        "recipient": null,
+        "provider_message_id": null,
+        "rule_id": 3,
+        "code": "alu_a00",
+        "kind": "rule",
+        "status": "replayed",
+        "message": "采购行情 · 现货提醒 #3\n南海灵通 A00 铝锭\n价格 23800.00 元/吨（≤ 23800.0000）\n现价：23800.00 元/吨\n报价日期：2026-11-10\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-10/1794281786672033.shtml",
+        "detail": "隔离历史回放，未调用 Telegram",
+        "telegram_message_id": null,
+        "send_day": "2026-11-10",
+        "created_at": "2026-11-10T16:00:00+08:00",
+        "finished_at": "2026-11-10T16:00:00+08:00"
+      },
+      {
+        "id": 1,
+        "user_id": 1,
+        "channel": "telegram",
+        "recipient": null,
+        "provider_message_id": null,
+        "rule_id": 2,
+        "code": "alu_a00",
+        "kind": "rule",
+        "status": "replayed",
+        "message": "采购行情 · 现货提醒 #2\n南海灵通 A00 铝锭\n价格 23800.00 元/吨（≥ 23800.0000）\n现价：23800.00 元/吨\n报价日期：2026-11-10\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-10/1794281786672033.shtml",
+        "detail": "隔离历史回放，未调用 Telegram",
+        "telegram_message_id": null,
+        "send_day": "2026-11-10",
+        "created_at": "2026-11-10T16:00:00+08:00",
+        "finished_at": "2026-11-10T16:00:00+08:00"
+      }
+    ],
+    "total": 7,
+    "page": 1,
+    "page_size": 100
+  },
+  "personal_logs": {
+    "items": [
+      {
+        "id": 8,
+        "user_id": 2,
+        "channel": "email",
+        "recipient": "isolated@example.com",
+        "provider_message_id": null,
+        "rule_id": 7,
+        "code": "alu_a00",
+        "kind": "rule",
+        "status": "replayed",
+        "message": "采购行情 · 现货提醒 #7\n南海灵通 A00 铝锭\n价格 23800.00 元/吨（≥ 23800.0000）\n现价：23800.00 元/吨\n报价日期：2026-11-12\n口径：南海灵通佛山国产A00批售（送厂）均价\n来源：世铝网（南海灵通公开报价）\nhttps://market.cnal.com/nanhai/2026/11-12/1794454767672170.shtml",
+        "detail": "隔离历史回放，未调用 Telegram",
+        "telegram_message_id": null,
+        "send_day": "2026-11-12",
+        "created_at": "2026-11-12T16:00:00+08:00",
+        "finished_at": "2026-11-12T16:00:00+08:00"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 30
+  },
+  "checks": [
+    "涨跌幅与两种到价条件触发（到价含等号）",
+    "未达到阈值不触发",
+    "首日缺前价跳过",
+    "跨日额度重置",
+    "进程重建后同日去重",
+    "四路并发去重",
+    "修改规则不重置额度",
+    "第二账号独立触发、去重、规则和日志隔离"
+  ]
+}

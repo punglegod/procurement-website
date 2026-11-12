@@ -1,9 +1,13 @@
 """账号、持久化会话、登录节流及管理员权限。"""
 
 from datetime import datetime, timedelta, timezone
+from contextlib import contextmanager
 import hashlib
+import math
 import re
 import secrets
+from threading import BoundedSemaphore
+from time import sleep
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError, InvalidHashError
@@ -14,26 +18,50 @@ from sqlalchemy.exc import IntegrityError
 
 from .config import read_account_settings
 from .db import SessionLocal
-from .models import AlertRule, LoginThrottle, PushLog, PushSetting, SiteSetting, User, UserSession
+from .models import AlertRule, LoginThrottle, PushLog, PushSetting, SecurityEvent, SiteSetting, User, UserSession
+from .security import reserve_limits
 
 hasher = PasswordHasher()
 COOKIE = "procurement_session"
 router = APIRouter()
+PASSWORD_SLOTS = BoundedSemaphore(2)
+REGISTER_IP_HOURLY = 5
+REGISTER_GLOBAL_HOURLY = 50
+REGISTER_IP_DAILY = 20
+REGISTER_GLOBAL_DAILY = 200
+AUTH_IP_PER_MINUTE = 30
+AUTH_GLOBAL_PER_MINUTE = 120
+AUTH_FAILURE_LIMIT = 5
+AUTH_FAILURE_WINDOW = 900
+AUTH_FAILURE_DELAYS = (0.25, 0.5, 1.0, 2.0, 4.0)
 
 
 def utc_now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+@contextmanager
+def password_slot():
+    # 不排队占用工作线程，也不允许并发 Argon2 将内存耗尽。
+    if not PASSWORD_SLOTS.acquire(blocking=False):
+        raise HTTPException(429, "密码验证繁忙，请稍后重试", headers={"Retry-After": "1"})
+    try:
+        yield
+    finally:
+        PASSWORD_SLOTS.release()
+
+
 def hash_password(password):
-    return hasher.hash(password)
+    with password_slot():
+        return hasher.hash(password)
 
 
 def verify_password(encoded, password):
-    try:
-        return hasher.verify(encoded, password)
-    except (VerificationError, InvalidHashError):
-        return False
+    with password_slot():
+        try:
+            return hasher.verify(encoded, password)
+        except (VerificationError, InvalidHashError):
+            return False
 
 
 def validate_username(value):
@@ -96,33 +124,111 @@ def create_session(session, response, user):
     response.set_cookie(COOKIE, token, httponly=True, samesite="strict", secure=read_account_settings()["SESSION_COOKIE_SECURE"].lower() == "true", max_age=604800, path="/")
 
 
-def throttle(session, request, username):
-    # 不信任 X-Forwarded-For；同时按真实客户端地址和账号持久节流。
-    keys = [digest("ip:" + (request.client.host if request.client else "unknown")), digest("user:"+username)]
-    rows = []
-    for key in keys:
-        row = session.get(LoginThrottle, key)
-        if row and row.reset_at > utc_now() and row.failures >= 5:
-            raise HTTPException(429, "失败次数过多，请 15 分钟后重试", headers={"Retry-After": "900"})
-        if row is None:
-            row = LoginThrottle(key=key, failures=0, reset_at=utc_now()+timedelta(minutes=15))
-            session.add(row)
-        elif row.reset_at <= utc_now():
-            row.failures, row.reset_at = 0, utc_now()+timedelta(minutes=15)
-        rows.append(row)
-    return rows
+def client_key(request):
+    # 应用不读取 X-Forwarded-For；部署层只应信任受控反向代理。
+    return digest("ip:" + (request.client.host if request.client else "unknown"))
+
+
+def record_security_event(session, kind, request, username, *, user_id=None, detail=""):
+    session.add(SecurityEvent(created_at=utc_now(), kind=kind, user_id=user_id,
+                              account_hash=digest(username), client_hash=client_key(request), detail=detail))
+
+
+def log_security_event(kind, request, username, *, user_id=None, detail=""):
+    # 被拒请求不能无限放大安全日志；日志额度不影响实际业务限流。
+    with SessionLocal() as session:
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+        try:
+            reserve_limits(session, [("security_log_ip", client_key(request), 20, 60),
+                                     ("security_log_global", "all", 200, 60)], at=utc_now())
+        except HTTPException as error:
+            if error.status_code == 429:
+                return
+            raise
+        record_security_event(session, kind, request, username, user_id=user_id, detail=detail)
+        session.commit()
+
+
+def throttle(session, request, username, purpose="login"):
+    # 新键只绑定来源和账号组合，忽略旧版全账号锁，陌生来源不能硬锁账号。
+    key = digest("pair:" + purpose + ":" + client_key(request) + ":" + username)
+    at = utc_now()
+    row = session.get(LoginThrottle, key)
+    if row and row.reset_at > at and row.failures >= AUTH_FAILURE_LIMIT:
+        remaining = max(1, math.ceil((row.reset_at - at).total_seconds()))
+        raise HTTPException(429, "此来源对此账号失败过多，请稍后重试", headers={"Retry-After": str(remaining)})
+    if row is None:
+        row = LoginThrottle(key=key, failures=0, reset_at=at+timedelta(seconds=AUTH_FAILURE_WINDOW))
+        session.add(row)
+    elif row.reset_at <= at:
+        row.failures, row.reset_at = 0, at+timedelta(seconds=AUTH_FAILURE_WINDOW)
+    # 在密码计算前预占失败/在途次数，防止并发错误请求绕过五次限制。
+    row.failures += 1
+    return row
+
+
+def reserve_auth_attempt(request, username, purpose):
+    try:
+        with SessionLocal() as session:
+            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            reserve_limits(session, [(purpose + "_ip", client_key(request), AUTH_IP_PER_MINUTE, 60),
+                                     (purpose + "_global", "all", AUTH_GLOBAL_PER_MINUTE, 60)], at=utc_now())
+            attempt = throttle(session, request, username, purpose)
+            account = session.scalar(select(User).where(User.username == username))
+            snapshot = (account.id, account.password_hash) if account else (None, DUMMY_HASH)
+            key, failures = attempt.key, attempt.failures
+            session.commit()
+        return snapshot, key, failures
+    except HTTPException as error:
+        if error.status_code == 429:
+            log_security_event(purpose + "_limited", request, username, detail="来源或账号组合限流")
+        raise
+
+
+def failed_authentication(request, username, purpose, failures, status, detail, user_id=None):
+    log_security_event(purpose + "_failed", request, username, user_id=user_id, detail="凭据不匹配或账号不可用")
+    # 哈希槽和数据库连接已释放，再做渐进等待。
+    sleep(AUTH_FAILURE_DELAYS[min(failures - 1, len(AUTH_FAILURE_DELAYS) - 1)])
+    raise HTTPException(status, detail)
 
 
 @router.post("/api/auth/register", status_code=201)
-def register(data: Credentials):
+def register(data: Credentials, request: Request):
+    try:
+        with SessionLocal() as session:
+            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            reserve_limits(session, [
+                ("register_ip_hour", client_key(request), REGISTER_IP_HOURLY, 3600),
+                ("register_global_hour", "all", REGISTER_GLOBAL_HOURLY, 3600),
+                ("register_ip_day", client_key(request), REGISTER_IP_DAILY, 86400),
+                ("register_global_day", "all", REGISTER_GLOBAL_DAILY, 86400),
+            ], at=utc_now())
+            session.commit()
+    except HTTPException as error:
+        if error.status_code == 429:
+            log_security_event("register_limited", request, data.username, detail="注册来源或全站限流")
+        raise
     with SessionLocal() as session:
-        # 与管理员关闭注册串行，避免并发越过注册开关。
+        if session.get(SiteSetting, "registration_enabled").value != "true":
+            raise HTTPException(403, "注册已关闭")
+        if session.scalar(select(User.id).where(User.username == data.username)) is not None:
+            raise HTTPException(409, "账号已存在")
+    # Argon2 在短配额事务之后、账号插入事务之前执行。
+    try:
+        encoded = hash_password(data.password)
+    except HTTPException:
+        log_security_event("register_busy", request, data.username, detail="密码计算并发额度已满")
+        raise
+    with SessionLocal() as session:
+        # 哈希期间管理员可能关注册，必须在最终写入事务里重新检查。
         session.connection().exec_driver_sql("BEGIN IMMEDIATE")
         if session.get(SiteSetting, "registration_enabled").value != "true":
             raise HTTPException(403, "注册已关闭")
-        user = User(username=data.username, password_hash=hash_password(data.password), role="user", enabled=True, created_at=utc_now())
+        user = User(username=data.username, password_hash=encoded, role="user", enabled=True, created_at=utc_now())
         session.add(user)
         try:
+            session.flush()
+            record_security_event(session, "register_success", request, data.username, user_id=user.id)
             session.commit()
         except IntegrityError:
             raise HTTPException(409, "账号已存在") from None
@@ -131,23 +237,26 @@ def register(data: Credentials):
 
 @router.post("/api/auth/login")
 def login(data: Credentials, request: Request, response: Response):
+    (account_id, encoded), attempt_key, failures = reserve_auth_attempt(request, data.username, "login")
+    try:
+        valid = verify_password(encoded, data.password)
+    except HTTPException:
+        log_security_event("login_busy", request, data.username, detail="密码计算并发额度已满")
+        raise
+    if not valid or account_id is None:
+        failed_authentication(request, data.username, "login", failures, 401, "账号或密码错误，或账号已禁用", account_id)
     with SessionLocal() as session:
         session.connection().exec_driver_sql("BEGIN IMMEDIATE")
-        attempts = throttle(session, request, data.username)
-        user = session.scalar(select(User).where(User.username == data.username))
-        valid = verify_password(user.password_hash, data.password) if user else verify_password(DUMMY_HASH, data.password)
-        if not valid or not user or not user.enabled:
-            for row in attempts:
-                row.failures += 1
+        user = session.get(User, account_id)
+        # 校验期间的改密、禁用、删除立即生效，不能用旧快照新建会话。
+        if user and user.enabled and user.password_hash == encoded:
+            session.get(LoginThrottle, attempt_key).failures = 0
+            session.execute(delete(UserSession).where(UserSession.token_hash == digest(request.cookies.get(COOKIE, ""))))
+            create_session(session, response, user)
+            record_security_event(session, "login_success", request, data.username, user_id=user.id)
             session.commit()
-            raise HTTPException(401, "账号或密码错误，或账号已禁用")
-        for row in attempts:
-            row.failures = 0
-        # 登录轮换 Cookie，对当前浏览器的旧会话进行撤销。
-        session.execute(delete(UserSession).where(UserSession.token_hash == digest(request.cookies.get(COOKIE, ""))))
-        create_session(session, response, user)
-        session.commit()
-        return user_dict(user)
+            return user_dict(user)
+    failed_authentication(request, data.username, "login", failures, 401, "账号或密码错误，或账号已禁用", account_id)
 
 
 DUMMY_HASH = hash_password(secrets.token_urlsafe(32))
@@ -169,17 +278,31 @@ def logout(request: Request, response: Response, user=Depends(current_user)):
 
 @router.post("/api/auth/password")
 def password_change(data: PasswordInput, request: Request, response: Response, user=Depends(current_user)):
+    (account_id, encoded), attempt_key, failures = reserve_auth_attempt(request, user.username, "password")
+    try:
+        valid = verify_password(encoded, data.old_password)
+    except HTTPException:
+        log_security_event("password_busy", request, user.username, user_id=user.id, detail="密码计算并发额度已满")
+        raise
+    if not valid or account_id != user.id:
+        failed_authentication(request, user.username, "password", failures, 400, "原密码错误", user.id)
+    try:
+        replacement = hash_password(data.new_password)
+    except HTTPException:
+        log_security_event("password_busy", request, user.username, user_id=user.id, detail="密码计算并发额度已满")
+        raise
     with SessionLocal() as session:
         session.connection().exec_driver_sql("BEGIN IMMEDIATE")
-        attempts = throttle(session, request, user.username)
         account = session.get(User, user.id)
-        if not verify_password(account.password_hash, data.old_password):
-            for row in attempts:
-                row.failures += 1
+        current_session = session.get(UserSession, digest(request.cookies.get(COOKIE, "")))
+        if not account or not account.enabled or account.password_hash != encoded or not current_session or current_session.user_id != user.id or current_session.expires_at <= utc_now():
+            record_security_event(session, "password_stale", request, user.username, user_id=user.id, detail="验证期间账号或会话已变更")
             session.commit()
-            raise HTTPException(400, "原密码错误")
-        account.password_hash = hash_password(data.new_password)
+            raise HTTPException(401, "账号或会话已变更，请重新登录")
+        account.password_hash = replacement
+        session.get(LoginThrottle, attempt_key).failures = 0
         session.execute(delete(UserSession).where(UserSession.user_id == user.id))
+        record_security_event(session, "password_success", request, user.username, user_id=user.id)
         session.commit()
     response.delete_cookie(COOKIE, path="/")
     return {"changed": True, "message": "密码已修改，请重新登录；全部旧会话已失效"}

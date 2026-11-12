@@ -2,7 +2,7 @@ name: procurement
 
 services:
   web:
-    image: procurement-website:stage5
+    image: procurement-website:stage7
     build:
       # 构建上下文只包含代码目录，根目录 .env 和 data 不会送入构建。
       context: ./backend
@@ -22,14 +22,15 @@ services:
         ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 TZ=Asia/Shanghai
         WORKDIR /app
         COPY requirements.txt /app/backend/requirements.txt
-        RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+        RUN python -m pip install --no-cache-dir --upgrade "pip>=26.2.0" && python -m pip install --no-cache-dir -r /app/backend/requirements.txt
         COPY __init__.py /app/backend/__init__.py
         COPY app /app/backend/app
+        COPY scripts/manage_admin.py /app/backend/scripts/manage_admin.py
         COPY --from=frontend_build /frontend/dist /app/frontend/dist
         RUN mkdir -p /app/data && chown -R 10001:10001 /app/data
         USER 10001:10001
         EXPOSE 8000
-        CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+        CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-proxy-headers"]
     init: true
     restart: unless-stopped
     # 默认绑定回环地址；站内仍要求账号登录。

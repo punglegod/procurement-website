@@ -1,0 +1,1 @@
+{"glob":"14.0.5","minimatch":"11.0.8","editorconfig":"3.0.2","glob_matching":"passed","editorconfig_minimatch":"passed","beautifier_html":"passed","beautifier_cli_glob_editorconfig":"passed"}

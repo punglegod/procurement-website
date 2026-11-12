@@ -1,0 +1,42 @@
+{
+  "version": "0.2.0",
+  "name": "procurement-website",
+  "dependencies": {
+    "@vue/test-utils": {
+      "version": "2.5.1",
+      "resolved": "https://registry.npmjs.org/@vue/test-utils/-/test-utils-2.5.1.tgz",
+      "overridden": false,
+      "dependencies": {
+        "js-beautify": {
+          "version": "2.0.3",
+          "resolved": "https://registry.npmjs.org/js-beautify/-/js-beautify-2.0.3.tgz",
+          "overridden": false,
+          "dependencies": {
+            "editorconfig": {
+              "version": "3.0.2",
+              "resolved": "https://registry.npmjs.org/editorconfig/-/editorconfig-3.0.2.tgz",
+              "overridden": false,
+              "dependencies": {
+                "minimatch": {
+                  "version": "11.0.8",
+                  "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-11.0.8.tgz",
+                  "overridden": false
+                }
+              }
+            },
+            "glob": {
+              "version": "14.0.5",
+              "resolved": "https://registry.npmjs.org/glob/-/glob-14.0.5.tgz",
+              "overridden": true,
+              "dependencies": {
+                "minimatch": {
+                  "version": "11.0.8"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

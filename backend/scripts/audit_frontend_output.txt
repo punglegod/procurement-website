@@ -1,0 +1,23 @@
+
+ RUN  v4.1.12 D:/Project/procurement-website/frontend
+
+stdout | ../backend/tests/audit_frontend.test.js > AUDIT F1 初始慢读取会覆盖已保存的新邮箱并可再次写回旧值
+F1 after delayed GET: server_email=new@example.com; displayed_email=old@example.com; notice=个人邮箱已保存。
+
+stdout | ../backend/tests/audit_frontend.test.js > AUDIT F1 初始慢读取会覆盖已保存的新邮箱并可再次写回旧值
+F1 second submit: server_email=old@example.com (new value overwritten)
+
+stdout | ../backend/tests/audit_frontend.test.js > AUDIT F2 翻页失败后旧页内容被标为新页
+F2 failed page=2: footer=第 2 页; rows=PAGE_ONE_MESSAGE (page 1); alert=HTTP 503
+
+ ✓ ../backend/tests/audit_frontend.test.js > AUDIT F1 初始慢读取会覆盖已保存的新邮箱并可再次写回旧值 46ms
+ ✓ ../backend/tests/audit_frontend.test.js > AUDIT F2 翻页失败后旧页内容被标为新页 40ms
+stdout | ../backend/tests/audit_frontend.test.js > AUDIT XSS 日志/规则 HTML 按文本转义，危险链接被拦截
+XSS: inserted_html_elements=0; rejected_protocols=javascript,data,file,vbscript
+
+ ✓ ../backend/tests/audit_frontend.test.js > AUDIT XSS 日志/规则 HTML 按文本转义，危险链接被拦截 20ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  15:46:50
+   Duration  1.09s (transform 149ms, setup 0ms, import 299ms, tests 109ms, environment 521ms)

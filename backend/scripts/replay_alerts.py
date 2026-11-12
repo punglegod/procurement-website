@@ -113,7 +113,8 @@ def main():
             other = User(username="replay_user", password_hash=hash_password(secrets.token_urlsafe(24)), role="user", enabled=True, created_at=at.replace(tzinfo=None))
             session.add(other); session.flush()
             other_id = other.id
-            session.add(PushSetting(user_id=other_id, email="isolated@example.com")); session.commit()
+            # 隔离回放直接标记测试邮箱已验证，不发送验证邮件、不影响正式设置。
+            session.add(PushSetting(user_id=other_id, email="isolated@example.com", email_verified_at=at.replace(tzinfo=None))); session.commit()
         personal = AlertService(factory, email_sender=sender, email_settings_reader=lambda: {"RESEND_API_KEY": "isolated-replay", "EMAIL_FROM": "sourcing@bbbhl.com"})
         personal.save(RuleInput(code="alu_a00", kind="price_gte", threshold=final.price), user_id=other_id)
         assert personal.run(at=at, user_id=other_id)["results"][0]["status"] == "replayed"

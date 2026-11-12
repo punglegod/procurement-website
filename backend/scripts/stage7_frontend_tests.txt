@@ -1,0 +1,10 @@
+npm notice run procurement-website@0.2.0 test
+npm notice run vitest run --no-color
+
+ RUN  v4.1.12 D:/Project/procurement-website/frontend
+
+
+ Test Files  4 passed (4)
+      Tests  23 passed (23)
+   Start at  16:34:28
+   Duration  2.40s (transform 593ms, setup 0ms, import 2.06s, tests 841ms, environment 3.11s)

@@ -1,0 +1,308 @@
+{
+  "status": "passed",
+  "mode": "isolated_real_http_and_cached_replay",
+  "http": {
+    "checks": [
+      {
+        "check": "anonymous_health",
+        "status": 401,
+        "expected": 401
+      },
+      {
+        "check": "anonymous_home",
+        "status": 303,
+        "expected": 303
+      },
+      {
+        "check": "anonymous_login_shell",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "anonymous_login_asset",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "admin_login",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "authenticated_home",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "authenticated_prices",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "admin_sources",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "stage7_user_register",
+        "status": 201,
+        "expected": 201
+      },
+      {
+        "check": "stage7_user_login",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "stage7_other_register",
+        "status": 201,
+        "expected": 201
+      },
+      {
+        "check": "stage7_other_login",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "ordinary_denied:/api/sources/status",
+        "status": 403,
+        "expected": 403
+      },
+      {
+        "check": "ordinary_denied:/api/settings/telegram",
+        "status": 403,
+        "expected": 403
+      },
+      {
+        "check": "ordinary_denied:/api/admin/users",
+        "status": 403,
+        "expected": 403
+      },
+      {
+        "check": "ordinary_fetch_denied",
+        "status": 403,
+        "expected": 403
+      },
+      {
+        "check": "save_unverified_email",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "test_before_verification",
+        "status": 403,
+        "expected": 403
+      },
+      {
+        "check": "request_verification",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "confirm_verification",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "verification_code_one_use",
+        "status": 400,
+        "expected": 400
+      },
+      {
+        "check": "verified_test_1",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "verified_test_2",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "shared_recipient_fourth_mail_limited",
+        "status": 429,
+        "expected": 429
+      },
+      {
+        "check": "second_account_same_recipient_save",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "recipient_limit_shared_across_accounts",
+        "status": 429,
+        "expected": 429
+      },
+      {
+        "check": "change_email",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "changed_email_test_denied",
+        "status": 403,
+        "expected": 403
+      },
+      {
+        "check": "changed_email_old_code_denied",
+        "status": 400,
+        "expected": 400
+      },
+      {
+        "check": "chunked_body_over_16KiB",
+        "status": 413,
+        "expected": 413
+      },
+      {
+        "check": "oversized_page",
+        "status": 422,
+        "expected": 422
+      },
+      {
+        "check": "logout",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "after_logout",
+        "status": 401,
+        "expected": 401
+      },
+      {
+        "check": "source_A_wrong_login_1",
+        "status": 401,
+        "expected": 401
+      },
+      {
+        "check": "source_A_wrong_login_2",
+        "status": 401,
+        "expected": 401
+      },
+      {
+        "check": "source_A_wrong_login_3",
+        "status": 401,
+        "expected": 401
+      },
+      {
+        "check": "source_A_wrong_login_4",
+        "status": 401,
+        "expected": 401
+      },
+      {
+        "check": "source_A_wrong_login_5",
+        "status": 401,
+        "expected": 401
+      },
+      {
+        "check": "source_A_sixth_login_limited",
+        "status": 429,
+        "expected": 429
+      },
+      {
+        "check": "forged_proxy_headers_login_1_still_limited",
+        "status": 429,
+        "expected": 429
+      },
+      {
+        "check": "forged_proxy_headers_login_2_still_limited",
+        "status": 429,
+        "expected": 429
+      },
+      {
+        "check": "source_B_correct_login_unaffected",
+        "status": 200,
+        "expected": 200
+      },
+      {
+        "check": "source_A_still_limited",
+        "status": 429,
+        "expected": 429
+      },
+      {
+        "check": "source_C_register_1",
+        "status": 201,
+        "expected": 201
+      },
+      {
+        "check": "source_C_register_2",
+        "status": 201,
+        "expected": 201
+      },
+      {
+        "check": "source_C_register_3",
+        "status": 201,
+        "expected": 201
+      },
+      {
+        "check": "source_C_register_4",
+        "status": 201,
+        "expected": 201
+      },
+      {
+        "check": "source_C_register_5",
+        "status": 201,
+        "expected": 201
+      },
+      {
+        "check": "source_C_sixth_registration_limited",
+        "status": 429,
+        "expected": 429
+      },
+      {
+        "check": "forged_proxy_headers_register_1_still_limited",
+        "status": 429,
+        "expected": 429
+      },
+      {
+        "check": "forged_proxy_headers_register_2_still_limited",
+        "status": 429,
+        "expected": 429
+      },
+      {
+        "check": "source_D_registration_unaffected",
+        "status": 201,
+        "expected": 201
+      }
+    ],
+    "checks_passed": 52,
+    "empty_catalog_count": 11,
+    "isolated_email_count": 3,
+    "real_email_or_telegram_sent": false,
+    "chunked_transfer_confirmed": true,
+    "real_loopback_client_ips_tested": [
+      "127.0.0.2",
+      "127.0.0.3",
+      "127.0.0.4",
+      "127.0.0.5"
+    ]
+  },
+  "isolated_server_stopped": true,
+  "process_privilege": {
+    "windows_elevated_admin_token": false
+  },
+  "security_event_counts": {
+    "login_failed": 5,
+    "login_limited": 4,
+    "login_success": 4,
+    "register_limited": 3,
+    "register_success": 8
+  },
+  "socket_source_ips_confirmed_in_security_log": true,
+  "forged_proxy_ips_absent_from_security_log": true,
+  "replay": {
+    "status": "passed",
+    "mode": "isolated_replay_no_telegram",
+    "isolated_messages": 8,
+    "checks": [
+      "涨跌幅与两种到价条件触发（到价含等号）",
+      "未达到阈值不触发",
+      "首日缺前价跳过",
+      "跨日额度重置",
+      "进程重建后同日去重",
+      "四路并发去重",
+      "修改规则不重置额度",
+      "第二账号独立触发、去重、规则和日志隔离"
+    ]
+  },
+  "old_replay_evidence_unchanged": true
+}

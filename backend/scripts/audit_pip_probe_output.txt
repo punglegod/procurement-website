@@ -1,0 +1,7 @@
+python=3.12.14; pip=25.0.1; tarfile.data_filter=True
+environment_dependencies=35; raw_findings=12; unique_GHSA=6
+duplicate_counts={"GHSA-4xh5-x5gv-qwph": 2, "GHSA-58qw-9mgm-455v": 2, "GHSA-6vgw-5pg2-w6jp": 2, "GHSA-jp4c-xjxw-mgf9": 2, "GHSA-qwm4-qh6w-59xr": 2, "GHSA-wf93-45jw-7689": 2}
+requirements_dependencies=27; requirements_findings=0
+CVE-2025-8869 tar_symlink_rejected=True; outside_created=False
+CVE-2026-1703 sibling_prefix_accepted=True; actually_inside=False
+CVE-2026-13346 doubly_encoded_filename='../probe.whl'; contains_separator=True

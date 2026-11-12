@@ -1,0 +1,17 @@
+AUDIT AB_MATRIX {"A_resources_unchanged": true, "B_DELETE_A_log_id": 405, "B_DELETE_A_setting_id": 405, "B_GET_A_log_id": 404, "B_GET_A_setting_id": 404, "B_PUT_A_log_id": 405, "B_PUT_A_setting_id": 405, "B_create_for_A": 422, "B_delete_A_rule": 404, "B_get_A_rule_id": 404, "B_immediate_check_owner": 3, "B_list_query_A": [2], "B_update_A_rule": 404, "B_update_settings_for_A": 422, "replay_api": 405}
+.AUDIT GUEST_ALL_SCHEMA_API {"DELETE /api/admin/users/2": 401, "DELETE /api/alerts/rules/1": 401, "GET /api/admin/users": 401, "GET /api/alerts/logs": 401, "GET /api/alerts/rules": 401, "GET /api/alerts/status": 401, "GET /api/auth/me": 401, "GET /api/commodities": 401, "GET /api/health": 401, "GET /api/me/push-settings": 401, "GET /api/prices/history": 401, "GET /api/prices/latest": 401, "GET /api/settings/telegram": 401, "GET /api/sources/status": 401, "POST /api/alerts/check": 401, "POST /api/alerts/rules": 401, "POST /api/alerts/test": 401, "POST /api/auth/logout": 401, "POST /api/auth/password": 401, "POST /api/fetch/run": 401, "PUT /api/admin/registration": 401, "PUT /api/admin/users/2": 401, "PUT /api/alerts/rules/1": 401, "PUT /api/me/push-settings": 401}
+AUDIT ORDINARY_GLOBAL_GATES {"DELETE /api/admin/users/2": 403, "GET /api/admin/users": 403, "GET /api/settings/telegram": 403, "GET /api/sources/status": 403, "POST /api/fetch/run": 403, "PUT /api/admin/registration": 403, "PUT /api/admin/users/2": 403}
+.AUDIT SESSION {"argon2id_m65536_t3_p4": true, "default_secure": false, "httponly": true, "max_age_604800": true, "old_token_after_delete": 401, "old_token_after_disable": 401, "old_token_after_password_change": 401, "samesite_strict": true, "stored_sha256_only": true, "token_length": 43}
+.AUDIT UNVERIFIED_UNLIMITED_EMAIL {"http_200": 20, "mock_sends": 20, "real_external_messages": 0, "recipient_verified": false, "requests": 20}
+.AUDIT SESSION_LIFECYCLE {"configured_secure": true, "cookie_after_logout": 401, "expired_cookie": 401, "old_cookie_after_rotation": 401}
+.AUDIT REGISTRATION_NO_LIMIT {"argon2_inside_global_sqlite_write_lock": true, "http_statuses": [201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201], "requests_same_ip": 12, "seconds": 0.741}
+.AUDIT ACCOUNT_LOCKOUT_DISTINCT_IP {"attacker_failures": [401, 401, 401, 401, 401], "correct_password_other_ip": 429, "retry_after": "900"}
+.AUDIT BOOTSTRAP_ON_RESTART {"admin_names": ["test_admin", "replacement_admin"], "old_admin_still_protected": true}
+.
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\Project\procurement-website\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+8 passed, 1 warning in 6.22s

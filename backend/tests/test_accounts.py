@@ -21,6 +21,14 @@ PASSWORD = "isolated-test-password"
 PAYLOAD = {"code": "alu_a00", "kind": "price_gte", "threshold": 1}
 
 
+def mark_verified(factory, *user_ids):
+    # 既有通道/去重回归的前置状态；所有权确认接口由第七阶段用例完整验证。
+    with factory() as session:
+        for user_id in user_ids:
+            session.get(PushSetting, user_id).email_verified_at = auth.utc_now()
+        session.commit()
+
+
 @pytest.fixture
 def accounts(tmp_path, monkeypatch):
     engine = make_engine(f"sqlite:///{tmp_path / 'stage5.sqlite3'}")
@@ -94,6 +102,7 @@ def test_rules_settings_logs_and_daily_dedup_are_personal(accounts):
         assert client.get("/api/me/push-settings").json()["email"] == email
     assert a.put("/api/me/push-settings", json={"email": "x@example.com", "user_id": ids[1]}).status_code == 422
     assert a.put("/api/me/push-settings", json={"email": "bad\r\nBcc: victim@example.com"}).status_code == 422
+    mark_verified(factory, *ids)
     with factory() as session:
         session.add(point("105")); session.commit()
     assert alerts.run(at=AT, user_id=ids[1])["results"][0]["status"] == "sent"
@@ -142,7 +151,7 @@ def test_throttling_and_csrf(accounts):
         for _ in range(5):
             assert guest.post("/api/auth/login", json={"username": "missing", "password": "incorrect-password"}).status_code == 401
         response = guest.post("/api/auth/login", json={"username": "missing", "password": "incorrect-password"})
-        assert response.status_code == 429 and response.headers["retry-after"] == "900"
+        assert response.status_code == 429 and 1 <= int(response.headers["retry-after"]) <= 900
     assert a.post("/api/alerts/rules", json=PAYLOAD, headers={"Origin": "https://other.example"}).status_code == 403
     assert a.post("/api/alerts/rules", data="code=x").status_code == 415
 
@@ -151,6 +160,7 @@ def test_disable_enable_delete_revoke_sessions_and_skip_evaluation(accounts):
     admin, a, b, ids, factory, alerts = accounts
     a.post("/api/alerts/rules", json=PAYLOAD)
     a.put("/api/me/push-settings", json={"email": "a@example.com"})
+    mark_verified(factory, ids[0])
     with factory() as session:
         session.add(point("105")); session.commit()
     assert admin.put(f"/api/admin/users/{ids[0]}", json={"enabled": False}).status_code == 200
@@ -190,6 +200,7 @@ def test_email_pending_then_mock_success_and_dual_admin_channels(accounts):
         assert not requests
         assert a.get("/api/alerts/logs").json()["items"][0]["status"] == "pending_configuration"
         alerts.email_settings_reader = lambda: {"RESEND_API_KEY": "mock-key", "EMAIL_FROM": "sourcing@bbbhl.com"}
+        mark_verified(factory, 1, *ids)
         with ThreadPoolExecutor(max_workers=4) as pool:
             batches = list(pool.map(lambda _: alerts.run(at=AT), range(4)))
         assert len(requests) == 3
@@ -221,6 +232,7 @@ def test_resend_timeout_no_retry():
 def test_email_failures_keep_user_quota_across_restart_and_reset_next_day(accounts, status):
     admin, a, b, ids, factory, alerts = accounts
     a.put("/api/me/push-settings", json={"email": "a@example.com"})
+    mark_verified(factory, ids[0])
     a.post("/api/alerts/rules", json=PAYLOAD)
     sender = Sender(status)
     alerts.email_sender = sender

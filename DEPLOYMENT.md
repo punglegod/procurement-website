@@ -1,4 +1,4 @@
-# Linux 云服务器运行说明（第五阶段更新，未执行部署）
+# Linux 云服务器运行说明（第七阶段更新，未执行部署）
 
 目标为一台 3 核 / 20G Linux 主机。只运行一个 FastAPI 容器、一个 worker；Vue 构建产物由后端静态托管。SQLite 位于持久卷，APScheduler 位于同一进程。容器限额 2 CPU / 2G 内存，为宿主系统和构建留余量。不要增加副本或 worker，也不要同时运行 `start.py`。
 
@@ -42,7 +42,15 @@ docker compose logs --tail=100 web
 ssh -N -L 8000:127.0.0.1:8000 your-user@your-server
 ```
 
-浏览器打开 `http://127.0.0.1:8000/` 后登录。注册只创建普通账号，全局设置、抓取、用户管理仅管理员可用。默认 compose 绑定服务器回环，安全组不开放 8000。以后使用域名公网入口须配置 HTTPS，并在 `.env` 设置 `SESSION_COOKIE_SECURE=true`；反向代理传递可信的正确 Host / scheme。HTTP 本地隧道保持 false。本阶段未部署公网入口。
+浏览器打开 `http://127.0.0.1:8000/` 后登录。注册只创建普通账号，全局设置、抓取、用户管理仅管理员可用。默认 compose 绑定服务器回环，安全组不开放 8000，启动显式 `--no-proxy-headers`，伪造转发头不会改变限流来源。HTTP 本地隧道的 `SESSION_COOKIE_SECURE` 保持 false。本阶段未部署公网入口。
+
+以后使用 HTTPS 域名入口时，在 `.env` 设置 `SESSION_COOKIE_SECURE=true`，反向代理保留正确 Host 并**覆盖**客户端提供的 X-Forwarded-For / X-Forwarded-Proto，后端仅允许该代理连接。通过 compose 的 `command` 覆盖默认 CMD，例如下列模板（先将示例地址替换为容器实际所见的受控代理 IP/CIDR；不能使用 `*`）：
+
+```yaml
+command: ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers", "--forwarded-allow-ips", "192.0.2.10"]
+```
+
+本机 `start.py` 的对应显式选项是 `--trusted-proxy-ips <实际代理IP或CIDR>`，默认不受 `FORWARDED_ALLOW_IPS` 环境变量影响。启用后验证 HTTPS Cookie、同源校验及日志中的来源归属；不要为消除 403 而全局信任转发头。SSH 隧道会将用户汇聚成同一来源 IP，共享该维度预算属于预期行为。
 
 ## 持久化、备份、迁移
 
@@ -75,16 +83,38 @@ docker compose up -d
 更新前备份数据库，再保留当前镜像用于回滚：
 
 ```bash
-docker tag procurement-website:stage5 procurement-website:previous
+docker tag procurement-website:stage7 procurement-website:previous
 docker compose build --pull
 docker compose up -d
 curl -i http://127.0.0.1:8000/api/health
 ```
 
-同结构代码回滚：`docker tag procurement-website:previous procurement-website:stage5` 后 `docker compose up -d --no-build`。第五阶段回第四阶段还须停止服务、恢复 pre-stage5 数据备份，并使用保留的第四阶段镜像；不要将旧库覆盖到运行中的新服务。
+同结构代码回滚：`docker tag procurement-website:previous procurement-website:stage7` 后 `docker compose up -d --no-build`。跨结构回滚须停服务并恢复对应升级前备份；第五阶段回第四阶段使用 pre-stage5 备份，第七阶段回第五阶段使用 pre-stage7 备份和对应旧镜像。不要将旧库覆盖到运行中的新服务。
 
 手动停止用 `docker compose stop`，管理员登录后查看来源状态。不要开启自动高频重抓。免费页有更新延迟，不能保证每日有当日价格；源结构变化明确失败，不填造价格。
 
 ## 本次验证边界
+
+### 第七阶段新增验收
+
+镜像构建先升级 `pip>=26.2.0` 再安装业务依赖；开发机本次已实际升级为 pip 26.3。**部署后必须对最终运行镜像的实际安装清单再跑一次 pip-audit**，不能只用开发机或 requirements 的结果代替。以下命令在目标 Linux 主机执行，审计工具在独立主机虚拟环境，不向运行容器安装工具：
+
+```bash
+docker compose exec -T web python -m pip --version
+docker compose exec -T web python -m pip list --format=freeze > image-installed.txt
+python3.12 -m venv .audit-tools
+.audit-tools/bin/python -m pip install --upgrade 'pip>=26.2.0' pip-audit
+.audit-tools/bin/python -m pip_audit -r image-installed.txt --progress-spinner off
+# 同时核对身份、卷和匿名认证门禁
+docker compose exec -T web id
+docker compose exec -T web python -c "import os; assert os.geteuid()==10001; assert os.access('/app/data',os.W_OK); assert os.access('/app/.env',os.R_OK)"
+curl -i http://127.0.0.1:8000/api/health
+```
+
+审计零已知漏洞、UID 10001、卷可写、凭据可读、匿名 health 为 401 后才记录验收通过。`image-installed.txt` 不含凭据；如存在无法解析/不适用项，须逐项核定，不能把扫描失败当成零漏洞。应另做一次卷备份恢复演练。
+
+已有第五阶段库首次运行本阶段会先创建 `pre-stage7` 一致性备份，事务新增验证/配额/安全事件结构，旧邮箱转为待验证；Telegram 与既有日额度保持。仅当没有任何管理员才播种；启动日志列出现有用户名。更名、密码轮换、特定来源解锁的停机维护步骤见 README；镜像内只携带 `backend/scripts/manage_admin.py` 这一维护脚本。未验证邮箱不发测试/提醒；验证与测试受四维配额约束。应用统一限制 JSON 正文为 16 KiB，反向代理可同步设置限制，勿配置为大于业务需要的上传服务。
+
+本阶段没有执行远端部署或 Windows 权限修改。下列 Docker 实跑限制仍成立：
 
 已对 compose 的 YAML、构建输入路径、单 worker、只读凭据挂载、数据卷、限额、健康检查和日志轮转做静态核对。本机没有 Docker CLI / daemon，因此 **未执行镜像构建、compose 启动、容器健康检查或卷恢复演练**。这些是将来服务器部署时待跑的步骤，不记为本阶段通过；本阶段未连接或部署任何服务器。

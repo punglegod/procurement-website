@@ -11,3 +11,6 @@ __pycache__/
 node_modules/
 frontend/dist/
 .DS_Store
+AUDIT_REPORT.md
+backend/scripts/audit_secrets_result.json
+backend/scripts/audit_secrets_review_shapes.json
