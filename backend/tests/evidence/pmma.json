@@ -1,0 +1,11 @@
+{
+  "code": "pmma",
+  "price": 14466.67,
+  "unit": "元/吨",
+  "quote_basis": "塑价365转载生意社橡塑大宗榜 PMMA 现货基准价（市场均价，非牌号成交价）",
+  "quote_date": "2026-11-09",
+  "source": "free_pmma",
+  "source_name": "塑价365（原始来源：生意社）",
+  "source_url": "https://www.pla365.com/pmma/",
+  "fetched_at": "2026-11-12T13:57:27+08:00"
+}
