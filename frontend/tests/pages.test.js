@@ -42,6 +42,19 @@ async function render(component, path = '/') {
 }
 
 describe('真实入库行情页面', () => {
+  test('内容工具栏保留可用刷新与搜索，页面无英雄区或装饰眉题', async () => {
+    const requests = vi.fn(async () => ({ ok: true, json: async () => live.latest }))
+    vi.stubGlobal('fetch', requests)
+    const wrapper = await render(MarketView)
+    const toolbar = wrapper.get('.market-panel .panel-toolbar')
+    expect(toolbar.find('input[type=search]').exists()).toBe(true)
+    const refresh = toolbar.findAll('button').find(button => button.text() === '刷新数据')
+    expect(refresh).toBeDefined()
+    await refresh.trigger('click'); await flushPromises()
+    expect(requests).toHaveBeenCalled()
+    expect(wrapper.find('.page-heading, .eyebrow').exists()).toBe(false)
+    expect(wrapper.text()).not.toMatch(/SPOT MARKET|页面读取于|让采购有据可循/)
+  })
   test('首页展示铝锭真实价格、口径、日期、来源及缺失涨跌', async () => {
     const wrapper = await render(MarketView)
     const row = wrapper.findAll('tbody tr')[0]

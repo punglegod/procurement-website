@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import ipaddress
+import logging
 import os
 from pathlib import Path
 import shutil
@@ -70,13 +71,18 @@ def main():
         if not (FRONTEND / "dist/index.html").is_file():
             raise RuntimeError("缺少 frontend/dist/index.html，请先运行不带 --skip-build 的启动命令。")
         import uvicorn
+        from backend.app.config import read_public_origin
+        origin = read_public_origin()
+        if origin and origin.startswith("https://") and args.trusted_proxy_ips is None:
+            logging.getLogger(__name__).warning("安全配置警告：HTTPS 公开来源已设置，但启动未启用代理头。"
+                                                "同源校验仍使用公开来源；必须核对真实客户端 IP 透传或在入口执行 IP 限流。")
         os.chdir(ROOT)
         print(f"全站地址：http://127.0.0.1:{args.port}", flush=True)
         # 回环直连默认也不信任转发头；不继承 FORWARDED_ALLOW_IPS 的宽泛配置。
         uvicorn.run("backend.app.main:app", host="127.0.0.1", port=args.port, workers=1,
                     proxy_headers=args.trusted_proxy_ips is not None,
                     forwarded_allow_ips=args.trusted_proxy_ips or "")
-    except (RuntimeError, subprocess.CalledProcessError) as error:
+    except (RuntimeError, ValueError, subprocess.CalledProcessError) as error:
         print(f"启动失败：{error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:

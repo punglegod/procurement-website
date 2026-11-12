@@ -9,8 +9,8 @@ async function save() {
 }
 </script>
 <template>
-  <section class="page-heading"><div><h1>账号与密码</h1><p>修改密码后，所有设备需重新登录。</p></div></section>
-  <section class="panel alert-form-panel"><form class="account-form" @submit.prevent="save">
+  <h1 class="page-title">账号与密码</h1>
+  <section class="panel alert-form-panel"><p>修改密码后，所有设备需重新登录。</p><form class="account-form" @submit.prevent="save">
     <label>原密码<input v-model="oldPassword" type="password" required autocomplete="current-password" maxlength="128" /></label>
     <label>新密码<input v-model="newPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" /></label>
     <button class="button" :disabled="busy">修改密码并重新登录</button>

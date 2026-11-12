@@ -100,3 +100,18 @@ test('登录与注册提交失败时显示服务端原因，提交不夹带角�
   expect(wrapper.get('[role=alert]').text()).toContain('注册已关闭')
   expect(wrapper.get('button').attributes('disabled')).toBeUndefined()
 })
+
+test('注册通用响应只引导登录，不自动探测登录或创建会话', async () => {
+  const message = '注册请求已处理。请使用所填账号和密码登录；无法登录时请更换账号名或联系管理员。'
+  const requests = mockFetch(() => ({ message }))
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/register', component: AuthView }] })
+  await router.push('/register'); await router.isReady()
+  wrapper = mount(AuthView, { global: { plugins: [router] } })
+  await wrapper.findAll('input')[0].setValue('chosen_name')
+  await wrapper.findAll('input')[1].setValue('isolated-password')
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  expect(requests.mock.calls.map(call => call[0])).toEqual(['/api/auth/register'])
+  expect(wrapper.get('[role=status]').text()).toBe(message)
+  expect(wrapper.findAll('input')[1].element.value).toBe('')
+  expect(wrapper.find('a').text()).toContain('去登录')
+})

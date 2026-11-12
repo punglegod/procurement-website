@@ -64,7 +64,7 @@ onMounted(load)
 onBeforeUnmount(() => { requestId++ })
 </script>
 <template>
-  <section class="page-heading"><div><div class="eyebrow">MY NOTIFICATIONS</div><h1>我的推送设置</h1><p>仅接收自己规则触发的现货提醒。</p></div></section>
+  <h1 class="page-title">我的推送设置</h1>
   <section class="panel alert-form-panel">
     <form class="account-form" @submit.prevent="save"><label>收件邮箱<input v-model="email" @input="editVersion++" type="email" maxlength="254" placeholder="your@example.com" :disabled="loading || busy || !loaded" /></label><button class="button" :disabled="loading || busy || !loaded">{{ loading ? '正在读取…' : '保存邮箱' }}</button></form>
     <p v-if="loaded" data-testid="email-verification-status">{{ !savedEmail ? '尚未设置收件邮箱' : emailVerified ? '已保存邮箱：已验证' : '已保存邮箱：未验证' }}<span v-if="dirty">；修改尚未保存，请先保存再验证。</span></p>

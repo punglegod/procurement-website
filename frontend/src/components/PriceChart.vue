@@ -16,8 +16,9 @@ function draw() {
   if (!chart) return
   chart.setOption({
     animation: false,
+    textStyle: { fontSize: 13 },
     grid: { left: 75, right: 35, top: 40, bottom: 50 },
-    tooltip: { trigger: 'axis', valueFormatter: value => `${Number(value).toLocaleString('zh-CN')} ${props.unit}` },
+    tooltip: { textStyle: { fontSize: 14 }, trigger: 'axis', valueFormatter: value => `${Number(value).toLocaleString('zh-CN')} ${props.unit}` },
     xAxis: { type: 'category', boundaryGap: true, data: props.points.map(point => point.quote_date), axisLine: { lineStyle: { color: '#dce5df' } }, axisTick: { show: false }, axisLabel: { color: '#7b8881', margin: 18 } },
     yAxis: { type: 'value', name: props.unit, scale: true, nameTextStyle: { color: '#7b8881', align: 'right', padding: [0, 8, 8, 0] }, axisLabel: { color: '#7b8881' }, splitLine: { lineStyle: { color: '#e9eeeb', type: 'dashed' } } },
     series: [{ name: '现货均价', type: 'line', data: props.points.map(point => point.price), smooth: false, symbol: 'circle', symbolSize: props.points.length === 1 ? 12 : 7, showSymbol: true, lineStyle: { width: 3, color: '#257861' }, itemStyle: { color: '#257861', borderColor: '#fff', borderWidth: 2 }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: '#25786126' }, { offset: 1, color: '#25786100' }] } } }],

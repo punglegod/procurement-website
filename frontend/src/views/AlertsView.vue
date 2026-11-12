@@ -24,7 +24,7 @@ onMounted(() => action(async () => {}))
 </script>
 
 <template>
-  <section class="page-heading"><div><div class="eyebrow">PRICE ALERTS</div><h1>我的提醒</h1><p>按固定现货口径提醒，及时掌握价格变化。</p></div><button class="button" :disabled="busy" @click="check">立即检查规则</button></section>
+  <h1 class="page-title">我的提醒</h1>
   <div v-if="error" role="alert" class="notice error-notice">{{ error }}<button class="text-button" :disabled="busy" @click="action(async () => {})">重新读取</button></div>
   <div v-if="notice" role="status" class="notice">{{ notice }}</div>
   <div class="notice" v-if="channel">{{ channel.message }} <RouterLink to="/push-logs" class="text-button">查看日志 / 测试推送 ↗</RouterLink></div>
@@ -41,7 +41,7 @@ onMounted(() => action(async () => {}))
     <p class="alert-help">日涨跌幅取绝对值，含上涨和下跌，比较上一真实报价日；按未四舍五入的数值判断。每条规则独立触发，同规则同品种每天最多尝试发送一次（北京时间）。</p>
   </section>
   <section class="panel">
-    <div class="panel-toolbar"><h2>已保存规则 <small>{{ rules.length }} 条</small></h2></div>
+    <div class="panel-toolbar"><h2>已保存规则 <small>{{ rules.length }} 条</small></h2><button class="button" :disabled="busy" @click="check">立即检查规则</button></div>
     <div class="alert-table-wrap"><table class="alert-table"><thead><tr><th>品种 / 固定口径</th><th>条件</th><th>状态 / 当前检查</th><th>操作</th></tr></thead><tbody>
       <tr v-for="rule in rules" :key="rule.id"><td><strong>{{ rule.name }}</strong><small>#{{ rule.id }} · {{ rule.quote_basis }}</small><small>{{ rule.unit }}</small></td><td>{{ kinds[rule.kind] }} {{ number(rule.threshold) }}{{ rule.kind === 'daily_change' ? '%' : ' ' + rule.unit }}</td><td>{{ rule.enabled ? '已启用' : '已暂停' }}<small>{{ rule.data_message }}</small></td><td class="alert-actions"><button class="text-button" :disabled="busy" @click="edit(rule)">编辑</button><button class="text-button" :disabled="busy" @click="toggle(rule)">{{ rule.enabled ? '暂停' : '启用' }}</button><button class="text-button" :disabled="busy" @click="remove(rule)">删除</button></td></tr>
     </tbody></table></div>

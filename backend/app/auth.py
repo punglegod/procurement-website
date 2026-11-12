@@ -125,7 +125,8 @@ def create_session(session, response, user):
 
 
 def client_key(request):
-    # 应用不读取 X-Forwarded-For；部署层只应信任受控反向代理。
+    # Uvicorn 仅在实际对端受信时用 XFF 重写 ASGI client；这里不自行采信任何转发头。
+    # 公开来源配置只用于同源校验，不能替代代理信任和真实 IP 透传。
     return digest("ip:" + (request.client.host if request.client else "unknown"))
 
 
@@ -211,9 +212,7 @@ def register(data: Credentials, request: Request):
     with SessionLocal() as session:
         if session.get(SiteSetting, "registration_enabled").value != "true":
             raise HTTPException(403, "注册已关闭")
-        if session.scalar(select(User.id).where(User.username == data.username)) is not None:
-            raise HTTPException(409, "账号已存在")
-    # Argon2 在短配额事务之后、账号插入事务之前执行。
+    # 已存在和新用户名均计算哈希，不用快速失败泄露存在性；哈希仍在写事务外。
     try:
         encoded = hash_password(data.password)
     except HTTPException:
@@ -231,8 +230,10 @@ def register(data: Credentials, request: Request):
             record_security_event(session, "register_success", request, data.username, user_id=user.id)
             session.commit()
         except IntegrityError:
-            raise HTTPException(409, "账号已存在") from None
-        return user_dict(user)
+            session.rollback()
+            log_security_event("register_existing", request, data.username, detail="注册请求未新建账号")
+        # 不返回账号编号/角色，不建会话；客户端统一引导登录，绝不覆盖旧账号密码。
+        return {"message": "注册请求已处理。请使用所填账号和密码登录；无法登录时请更换账号名或联系管理员。"}
 
 
 @router.post("/api/auth/login")

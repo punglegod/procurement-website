@@ -95,7 +95,10 @@ def test_duplicate_concurrent_registration_remains_atomic(accounts, monkeypatch)
     monkeypatch.setattr(auth, "hash_password", synchronized)
     with client_at("198.51.100.51") as first, client_at("198.51.100.52") as second, ThreadPoolExecutor(max_workers=2) as pool:
         outcomes = list(pool.map(lambda client: registration(client, "duplicate_race").status_code, [first, second]))
-    assert sorted(outcomes) == [201, 409]
+    assert outcomes == [201, 201]
+    # 响应相同，唯一约束仍保证只创建一条账号记录。
+    with accounts[4]() as session:
+        assert session.scalar(select(func.count()).select_from(User).where(User.username == "duplicate_race")) == 1
 
 
 def test_failed_login_pair_delay_and_foreign_source_recovery(accounts, monkeypatch):

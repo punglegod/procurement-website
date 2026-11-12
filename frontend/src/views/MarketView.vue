@@ -1,9 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useMarket } from '../store'
-import { direction, number, signed, sourceUrl, statusText, time } from '../api'
+import { direction, number, signed, sourceUrl, statusText } from '../api'
 
-const { items, loading, refreshedAt, quoted, stale, refresh } = useMarket()
+const { items, loading, quoted, stale, refresh } = useMarket()
 const query = ref('')
 const filter = ref('all')
 const filtered = computed(() => items.value.filter(item =>
@@ -13,20 +13,17 @@ const filtered = computed(() => items.value.filter(item =>
 </script>
 
 <template>
-  <section class="page-heading">
-    <div><div class="eyebrow">SPOT MARKET OVERVIEW</div><h1>原材料行情<span class="heading-dot">.</span></h1><p>看清每一次价格变化，让采购有据可循。</p></div>
-    <div class="heading-actions"><span class="refresh-time">{{ refreshedAt ? `页面读取于 ${time(refreshedAt)}` : '正在读取行情' }}</span><button class="button" :disabled="loading" @click="refresh"><span :class="{ spinning: loading }" aria-hidden="true">↻</span> {{ loading ? '读取中…' : '刷新数据' }}</button></div>
-  </section>
+  <h1 class="page-title">行情总览</h1>
 
   <section class="summary-grid" aria-label="行情概况">
-    <article class="summary-card summary-primary"><span>跟踪品种</span><div class="summary-value">{{ items.length || '—' }}<small>个</small></div><p>塑料 · 化工 · 包装 · 有色金属</p><span class="card-decoration" aria-hidden="true">↗</span></article>
-    <article class="summary-card"><span>已有报价</span><div class="summary-value">{{ quoted }}<small>/ {{ items.length || '—' }}</small></div><p><span class="small-dot dot-green"></span> 以实际入库数据为准</p></article>
+    <article class="summary-card summary-primary"><span>跟踪品种</span><div class="summary-value">{{ items.length || '—' }}<small>个</small></div></article>
+    <article class="summary-card"><span>已有报价</span><div class="summary-value">{{ quoted }}<small>/ {{ items.length || '—' }}</small></div></article>
     <article class="summary-card"><span>过期报价</span><div class="summary-value" :class="{ 'text-amber': stale }">{{ stale }}<small>个</small></div><p>{{ stale ? '黄色标记 · 请留意报价日期' : '已有报价中暂无过期数据' }}</p></article>
-    <article class="summary-card"><span>暂无报价</span><div class="summary-value">{{ items.length - quoted }}<small>个</small></div><p>采集失败时保留空值并说明原因</p></article>
+    <article class="summary-card"><span>暂无报价</span><div class="summary-value">{{ items.length - quoted }}<small>个</small></div></article>
   </section>
 
   <section class="market-panel">
-    <div class="panel-toolbar"><div class="panel-title"><h2>现货报价</h2><span class="count-badge">{{ items.length }} 个品种</span></div><label class="search-field"><span aria-hidden="true">⌕</span><input v-model="query" aria-label="搜索品种" placeholder="搜索品种 / 代码" type="search" /></label></div>
+    <div class="panel-toolbar"><div class="panel-title"><h2>现货报价</h2><span class="count-badge">{{ items.length }} 个品种</span></div><div class="toolbar-actions"><button class="button" :disabled="loading" @click="refresh">{{ loading ? '读取中…' : '刷新数据' }}</button><label class="search-field"><span aria-hidden="true">⌕</span><input v-model="query" aria-label="搜索品种" placeholder="搜索品种 / 代码" type="search" /></label></div></div>
     <div class="table-tools"><div class="filter-tabs" aria-label="行情筛选"><button :class="{ selected: filter === 'all' }" :aria-pressed="filter === 'all'" @click="filter = 'all'">全部品种</button><button :class="{ selected: filter === 'quoted' }" :aria-pressed="filter === 'quoted'" @click="filter = 'quoted'">已有报价</button><button :class="{ selected: filter === 'pending' }" :aria-pressed="filter === 'pending'" @click="filter = 'pending'">暂无报价</button></div><span class="table-legend">涨跌对比上一报价日 · 同一口径</span></div>
     <div class="table-scroll" tabindex="0" aria-label="品种报价表，可横向滚动">
       <table class="price-table">
@@ -48,5 +45,5 @@ const filtered = computed(() => items.value.filter(item =>
     </div>
     <div class="table-footer"><span>显示 {{ filtered.length }} / {{ items.length }} 个品种</span><span>“—” 表示暂无报价或缺少上一报价日数据</span></div>
   </section>
-  <div class="notice info-notice"><span class="info-icon" aria-hidden="true">i</span><p><strong>每一笔报价，都保留出处。</strong> 11 个品种均使用免费公开现货源，卓创暂缓启用。各品种规格与计价方式见报价口径；请留意报价日期。点击品种查看历史走势，点击来源查看原始报价。</p></div>
+  <div class="notice info-notice"><span class="info-icon" aria-hidden="true">i</span><p>11 个品种均使用免费公开现货源，卓创暂缓启用。各品种规格与计价方式见报价口径；请留意报价日期。点击品种查看历史走势，点击来源查看原始报价。</p></div>
 </template>

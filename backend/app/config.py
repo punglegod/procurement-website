@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
+import os
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from dotenv import dotenv_values
@@ -80,4 +82,27 @@ def read_account_settings() -> dict[str, str]:
     values = dotenv_values(ROOT / ".env", encoding="utf-8-sig", interpolate=False)
     return {key: values.get(key) or "" for key in (
         "ADMIN_USERNAME", "ADMIN_PASSWORD", "RESEND_API_KEY", "EMAIL_FROM", "SESSION_COOKIE_SECURE"
-    )} | {"EMAIL_FROM": values.get("EMAIL_FROM") or "sourcing@bbbhl.com"}
+    )} | {"EMAIL_FROM": values.get("EMAIL_FROM") or "sourcing@bbbhl.com",
+          "SESSION_COOKIE_SECURE": (values.get("SESSION_COOKIE_SECURE") or "true").strip()}
+
+
+def read_public_origin() -> str | None:
+    # 公开来源不是凭据，可由进程显式覆盖；其他凭据仍只读取根配置文件。
+    value = os.environ.get("PUBLIC_BASE_URL")
+    if value is None:
+        value = dotenv_values(ROOT / ".env", encoding="utf-8-sig", interpolate=False).get("PUBLIC_BASE_URL")
+    if not value or not value.strip():
+        return None
+    try:
+        parsed = urlsplit(value.strip())
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username is not None
+                or parsed.password is not None or parsed.path not in {"", "/"} or parsed.query or parsed.fragment
+                or any(character.isspace() for character in value) or "\\" in value):
+            raise ValueError
+        host = parsed.hostname.lower().encode("idna").decode("ascii")
+        host = f"[{host}]" if ":" in host else host
+        port = parsed.port
+        suffix = f":{port}" if port is not None and port != {"http": 80, "https": 443}[parsed.scheme] else ""
+        return f"{parsed.scheme}://{host}{suffix}"
+    except (ValueError, UnicodeError):
+        raise ValueError("PUBLIC_BASE_URL 必须是仅含 http/https 来源的地址，不含路径、凭据、查询或片段") from None

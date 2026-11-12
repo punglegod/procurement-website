@@ -1,331 +1,69 @@
 # 采购行情网站
 
-需注册登录的原材料**现货**价格跟踪网站。包含 11 品种行情、搜索筛选、涨跌与过期提示、历史走势，以及按账号隔离的提醒、邮箱推送和日志。管理员管理全局设置与用户，并保留 Telegram 通道。FastAPI 同时提供 API 和 Vue 构建产物，最终只运行一个服务进程。
+注册登录后使用的原材料现货行情网站，跟踪 ABS、PC、PMMA、碳酸锂、DMC、硅橡胶、PE、PP 粒、BOPET、瓦楞原纸和南海灵通 A00 铝锭，共 11 个品种。
 
-**当前决定（2026-11-12）：只跑免费源；卓创暂缓启用，不填写凭据。** 第四阶段已逐个验证全部 11 个品种的免费公开现货源。每个品种固定一个报价口径，保留真实报价日；不补造历史。逐品种进度见 [STAGE4_PROGRESS.md](STAGE4_PROGRESS.md)，完整自测与提交限制见 [STAGE4_REPORT.md](STAGE4_REPORT.md)。
+## 核心功能
 
-## 环境与安装
+- 行情：最新现货价、涨跌额、涨跌幅、报价日期与过期提示。
+- 走势：同一来源与固定报价口径的历史图表，不补造缺失报价。
+- 提醒：日涨跌幅或到价触发，记录结果并按北京时间自然日去重。
+- 账号隔离：每个账号独立管理提醒、邮箱与推送日志；全局管理仅管理员可用。
 
-- Python **3.12**、Git、Node.js **20.19+ 或 22.12+**（含 npm）。Windows / Linux 均可运行；Windows 的时区数据由 `tzdata` 提供。
-- 首次安装前端依赖需要访问 npm registry，采集免费报价需要访问下表列出的公开站点。
-- 已有 `frontend/dist` 时可使用 `--skip-build` 启动，无需 Node.js。
+开放注册只创建普通账号；注册提交后请到登录页登录，无法登录可更换账号名或联系管理员。管理员仅在系统没有任何管理员时从配置播种。
 
-以下命令均从项目根目录执行。PowerShell：
+普通账号通过已验证邮箱收信，修改邮箱后须重新验证；管理员使用 Telegram，也可同时接收已验证邮箱邮件。通道未配置时明确显示待配置。
 
-首次运行前复制 `.env.example` 为 `.env`（已有文件不要覆盖），填入 `ADMIN_USERNAME` / `ADMIN_PASSWORD`。账号须为 3～64 位字母、数字、下划线或连字符，密码 8～128 位。升级旧库时先停止旧服务；启动会先备份再迁移。没有管理员且缺少有效播种配置时启动失败，不将旧规则留给无主账号。
+卓创 adapter 框架保留，暂缓启用；当前使用免费公开现货源。
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade "pip>=26.2.0"
-.\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
-.\.venv\Scripts\python.exe start.py
-```
+## 快速开始
 
-Linux / macOS：
+需要 Python 3.12、Node.js 20.19+ 或 22.12+（含 npm）。首次准备虚拟环境，升级 `pip>=26.2.0`，安装 `backend/requirements-dev.txt`；复制 `.env.example` 为 `.env` 并填首次管理员配置，已有配置不要覆盖。
+
+本地 HTTP 开发须在 `.env` 显式设置 `SESSION_COOKIE_SECURE=false`；公开来源留空。激活虚拟环境后，从根目录启动：
 
 ```bash
-python3.12 -m venv .venv
-.venv/bin/python -m pip install --upgrade 'pip>=26.2.0'
-.venv/bin/python -m pip install -r backend/requirements-dev.txt
-.venv/bin/python start.py
+python start.py
 ```
 
-安装好 Python 依赖后，**一条命令 `python start.py` 即可启动全站**（建议使用上面虚拟环境中的 Python）。脚本根据锁文件安装前端依赖，再构建到 `frontend/dist` 并启动单 worker 的 FastAPI；锁文件未变时复用依赖。依赖以 `frontend/package-lock.json` 锁定。打开 <http://127.0.0.1:8000/>，点击品种进入详情；详情采用哈希路由，例如 <http://127.0.0.1:8000/#/commodity/alu_a00>，可以直接打开和刷新。
+访问 <http://127.0.0.1:8000/>。启动脚本安装/构建前端并运行单服务；`--skip-build` 复用已有构建，`--port 8010` 改端口。停止用 Ctrl+C。
 
-停止服务使用 `Ctrl+C`。可选参数：
+Docker Compose 2.17+ 有两种启动方式，均需先按部署文档准备配置：
 
-```powershell
-# 复用已构建前端（构建不存在时会明确报错）
-.\.venv\Scripts\python.exe start.py --skip-build
-# 自定义本地端口
-.\.venv\Scripts\python.exe start.py --port 8010
-# 仅实际通过受控反代访问时显式启用；填写真实代理 IP/CIDR，禁止通配符
-.\.venv\Scripts\python.exe start.py --skip-build --trusted-proxy-ips 127.0.0.1
+```bash
+# 从源码构建并启动
+docker compose up -d --build
+# 已构建镜像：复用镜像启动
+docker compose up -d --no-build
 ```
 
-仅运行服务时可只安装 `backend/requirements.txt`。启动脚本在本机 PATH 没有 Node 时，会识别已有 Codex runtime 的 Node；普通机器使用标准 Node.js + npm 即可。本机 npm 临时工具位于忽略提交的 `.tools/npm/`，不作为项目依赖分发。
+默认只绑定回环端口；使用单 worker、持久数据卷和只读配置挂载。
 
-本机当前终端 PATH 未配置 Python 和 Git。本次自测用已有 Python 3.12.14 创建了 `.venv`；如需重建，可使用：
+## 配置
 
-```powershell
-& "$env:USERPROFILE\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" -m venv .venv
-```
+完整说明见 [.env.example](.env.example)，凭据只由服务端读取，不提交 `.env`。
 
-本机网络通过已有代理访问。需要时在安装及启动命令前设置下列环境变量；正常联网的机器无需设置。账号凭据仍只从 `.env` 读取。
-
-```powershell
-$env:HTTPS_PROXY = 'http://127.0.0.1:7890'
-$env:NO_PROXY = '127.0.0.1,localhost'
-# npm 安装若也需要本机已有代理：
-$env:NPM_CONFIG_HTTPS_PROXY = 'http://127.0.0.1:7890'
-$env:NPM_CONFIG_PROXY = 'http://127.0.0.1:7890'
-```
-
-默认监听 `127.0.0.1:8000`，不信任客户端 `X-Forwarded-For/Proto`（包括 SSH 隧道），以实际连接来源执行 IP 限流。只有明确使用受控反向代理才设置 `--trusted-proxy-ips`，代理必须覆盖客户端转发头；HTTPS 域名部署细节见 DEPLOYMENT.md。未登录访问首页会跳到 `/login`，接口（含健康检查）返回 401；登录与注册入口及其静态脚本允许匿名加载。文档地址 <http://127.0.0.1:8000/docs> 也需要会话。普通账号调用全局设置接口返回 403。Vite 开发模式由前端路由守卫跳登录、后端接口校验权限；正式单服务同时执行页面门禁。
-
-## 第七阶段安全限制与邮箱验证
-
-保存邮箱后在“我的推送设置”点击发送验证码，输入邮件中的 **8 位数字**确认。验证码 15 分钟有效、最多 5 次错误尝试、一次性消费，库中只存带随机盐的摘要，不写响应或日志。换邮箱即撤销验证和旧验证码；保存同一地址不清除已验证状态。旧库邮箱升级后全部待验证。未验证时规则标 `pending_verification`、不发邮件、不占日额度；普通账号测试返回 403。管理员 Telegram 不受邮箱验证影响。缺 Resend 配置仍明确为 `pending_configuration`，不假发成功。
-
-测试邮件与验证邮件共享持久配额，包括失败/未知尝试；换地址或重启不清额度，任一维度超限即 429/Retry-After：
-
-| 维度 | 10 分钟窗口 | 24 小时窗口 |
-| --- | --- | --- |
-| 账号 | 5 | 20 |
-| 来源 IP | 10 | 100 |
-| 收件地址（大小写归一） | 3 | 10 |
-| 全站 | 50 | 500 |
-
-窗口从首次领取开始，区别于提醒的北京时间自然日额度。注册每 IP 5 次/小时、20 次/24 小时，全站 50 次/小时、200 次/24 小时；配额在哈希前领取，插入短事务再检查注册开关及唯一性。每账号最多 20 条规则，新建最多 10 条/10 分钟、50 条/24 小时；编辑不扣额度，删除不退额度。应用在解析前按实际流计数，正文上限 **16 KiB**（含 chunked），超限 413；本站没有上传接口，小型 JSON 表单无需大正文。日志分页 page 为 1～100000、page_size 为 1～100，越界 422。
-
-登录和改密各有每 IP 30 次/分钟、全站 120 次/分钟预算；同操作、来源 IP、账号组合 15 分钟最多 5 次失败/在途尝试，失败等待依次 0.25、0.5、1、2、4 秒。陌生来源失败不会锁死整个账号。哈希和校验共用 2 个并发槽，忙时 429；哈希及等待不持 SQLite 写锁。安全事件记录账号/IP 摘要与受控说明，不存密码、验证码或令牌。反向代理只应信任受控代理地址，并剥离客户端伪造的转发头。
-
-第七阶段升级先用 SQLite backup API 备份到 `data/backup/*-pre-stage7-*.sqlite3`，再事务新增邮箱验证字段、配额及安全事件表；行情、旧规则与推送日额度不变。`site_settings.stage7_backup` 记录备份；重复启动不重复迁移。第四阶段更早的库仍先按后文规则备份/迁移。自测改用下列命令，不发送真实邮件或抓取行情，旧第五阶段 smoke 仅保留为历史脚本：
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install --upgrade "pip>=26.2.0"
-.\.venv\Scripts\python.exe -m pytest backend/tests -q -p no:cacheprovider --basetemp=.tools/stage7-local-check
-.\.venv\Scripts\python.exe backend/scripts/smoke_stage7.py
-node frontend/node_modules/vitest/vitest.mjs run --config backend/scripts/audit_frontend.config.mjs
-# frontend 目录中仍使用 npm test 与 npm run build
-```
-
-### 管理员更换与登录恢复
-
-只有系统不存在任何 admin 时才读取 `.env` 播种。已有管理员时启动日志明确列出现有用户名；修改 `.env` 不会更名或增建管理员。通常密码轮换使用账号页改密码。确需本机更名/重设密码时，先停止服务，在根 `.env` 填入新的 ADMIN_USERNAME / ADMIN_PASSWORD，再执行维护脚本。它先备份，保留原管理员 ID、角色和资源归属，仅改用户名/密码并撤销所有旧会话；目标同名普通账号会被拒绝，不会提权。不要删除管理员行或数据库来重新播种。
-
-```powershell
-# 先停止服务；用户名不是密码，凭据不放命令行
-.\.venv\Scripts\python.exe backend/scripts/manage_admin.py replace --username 现有管理员名 --apply
-.\.venv\Scripts\python.exe start.py --skip-build
-```
-
-来源组合限流时，现有会话仍可用；等 Retry-After，或从其他可信来源登录。确需本机恢复时先停服务，只清指定管理员和来源组合，保留其他账号及全站/IP 配额（来源总量预算仍可能需等待一分钟）：
-
-```powershell
-.\.venv\Scripts\python.exe backend/scripts/manage_admin.py unlock --username 现有管理员名 --ip 127.0.0.1 --apply
-```
-
-Linux 换用 `.venv/bin/python`。容器先 `docker compose stop web`，再 `docker compose run --rm --no-deps web python backend/scripts/manage_admin.py replace --username 现有管理员名 --apply`（或 unlock），完成后 `docker compose up -d`。维护不清安全事件、不改系统权限，仅在可信本机操作。
-
-## 账号、个人推送与升级（第五阶段基础，第七阶段规则优先）
-
-管理员首次由根目录 `.env` 播种，已有同名账号的密码和角色不覆盖；开放注册只能创建 `user`。管理员可在“用户管理”禁用、启用、删除普通账号及开关注册；管理员账号受保护。禁用、删除即时撤销该账号全部会话，删除同时清理其规则、推送设置与日志。注册开关不影响已有账号登录。
-
-密码用 Argon2id 哈希；Cookie 为 HttpOnly、SameSite=Strict，有效期 7 天，数据库只存令牌摘要。改密码要求原密码并撤销全部旧会话，退出撤销当前会话。登录与原密码校验失败按客户端地址和账号节流：15 分钟内 5 次失败后返回 429。HTTPS 部署设置 `.env` 中 `SESSION_COOKIE_SECURE=true`，本机 HTTP 保持 false；写操作校验 Origin，拒绝跨站请求。
-
-“我的提醒”“推送日志”“我的推送设置”只读写当前登录账号；传入他人规则编号返回 404。普通账号无全局管理入口。管理员规则走 Telegram，填写个人邮箱后同时走邮件；普通账号只走其个人邮箱。根目录 `.env` 的 `RESEND_API_KEY` 与 `EMAIL_FROM`（默认 `sourcing@bbbhl.com`）供服务端使用，账号只填写自己的收件邮箱。未配置 key、发件地址或收件邮箱时如实显示、记录 `pending_configuration`，不发网络请求。Resend API 返回有效消息编号才记 `sent`；不等同于最终收件箱送达。实现依据 [Resend 官方发送接口](https://resend.com/docs/api-reference/emails/send-email)。
-
-提醒、推送设置、日志都带 `user_id`，个人立即检查只评估自己；定时与采集后检查遍历全部有效账号。每日去重按**用户 + 规则 + 品种 + 北京日期 + 通道**，每个通道每天最多一次发送尝试；失败、超时、中断仍占额度。待配置记录可在补配置后原位转为发送记录，不占发送额度，不因每 5 分钟检查无限追加日志。管理员 Telegram 与邮件各自领取额度，一条通道失败不影响另一条。
-
-旧库首次升级使用 SQLite backup API 在 `data/backup/<库名>-pre-stage5-<时间戳>.sqlite3` 生成一致性备份（包含 WAL 已提交数据），然后在单一事务内建表、播种、迁移。旧规则与旧 Telegram 日志归最早管理员，保留编号、内容、日期、消息编号、当日额度和规则 AUTOINCREMENT 最大值；报价和抓取额度不改。`site_settings.stage5_backup` 保存该次备份路径，重复启动不重复迁移或覆盖密码。备份/播种失败则中止升级。
-
-回滚时先停止所有服务并另存当前库，再切回第四阶段代码 `2150d0b`，用备份覆盖 SQLite 内容（将示例路径换为本次报告的真实备份）：
-
-```powershell
-# 服务已停止；不会改 .env。恢复会丢弃备份之后的新账号/规则等修改。
-.\.venv\Scripts\python.exe -c "import sqlite3; s=sqlite3.connect('data/backup/实际备份.sqlite3'); d=sqlite3.connect('data/procurement.sqlite3'); s.backup(d); d.close(); s.close()"
-# 切回第四阶段代码后启动；不要先用第五阶段代码启动，否则会重新升级。
-.\.venv\Scripts\python.exe start.py
-```
-
-第五阶段自测无需运行正式服务、无需修改正式 `.env`：
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest backend/tests -q
-.\.venv\Scripts\python.exe backend/scripts/smoke_accounts.py
-.\.venv\Scripts\python.exe backend/scripts/replay_alerts.py
-cd frontend
-npm test
-npm run build
-```
-
-`smoke_accounts.py` 先将正式库只读备份至 `data/backup/`，再复制到 `data/stage5-validation/<时间>/`，仅在副本上迁移、启动真实 HTTP 服务、注册临时 A/B、验证权限与 mock 邮件，退出后停止子服务并删除临时 `.env`。不发真实推送，不抓上游，手动抓取入口只 mock 验证权限。为触发条件，仅将副本中真实铝锭点日期变为测试当天，绝不将测试数据写回正式库。输出 `data/stage5-live.json`。历史回放同样使用临时管理员、独立账号与隔离通道。
-
-旧阶段 smoke 脚本现在均支持 `--username 管理员账号`，运行后用隐藏输入提示填写密码；不把密码放在命令行或日志。原有 `smoke_alerts.py` 仍会向已配置通道发送真实测试消息，日常自动验收请用上述 `smoke_accounts.py`。
-
-## 卓创框架（暂缓启用）
-
-当前不创建或填写卓创凭据；adapter 只保留第一阶段框架。以后站长明确启用时，再按根目录 `.env.example` 配置根目录 `.env` 中的 `SCI99_USER` + `SCI99_PASS` 或 `SCI99_COOKIE`。不把账号、密码、Cookie 放入日志、代码或提交；`.env`、`data/` 已被 Git 忽略。以下是保留框架的技术边界，不代表当前已启用。
-
-卓创在 `SOURCES["sci99"]["enabled"] = False` 明确休眠：无论是否误填凭据均跳过，状态为 `pending_credentials` / **待配置凭据**，不消耗当日额度。`adapters/sci99.py` 保留原框架未改动，全部品种已与其解耦；启用须另经站长明确指示与重新核定解析。
-
-第一阶段卓创 ABS 框架曾限定 **华东市场 ABS 0215A 现货均价，元/吨**，只接受完整表头和该市场/牌号/现货行。第四阶段 ABS 使用下表中的独立免费来源；旧卓创框架不能向当前免费口径入库。历史旧来源记录保留，但不混入最新价、历史图或涨跌比较。
-
-**卓创接入边界：** 本次未提供凭据，未验证真实账号登录或 ABS 真实价格。公开产品页采用 JS 加载，官方登录 SDK 也包含 JS 与验证流程。框架只提交官网明确给出的普通 POST 登录表单；遇 JS 登录、验证码、风控、登录异常或权限不足立即停止，不模拟加密/验证码。实际接入推荐人工登录后配置 Cookie；即便配置 Cookie，也需要在本人已订阅页面上核定真实表格结构，按实际情况完善 `adapters/sci99.py` 的解析规则。当前框架不保证默认产品页能直接返回 ABS 价格，解析失败会如实显示原因。
-
-品种与来源全部维护在 `backend/app/config.py`。新源使用各自状态标识，失败只影响对应品种；同站点的不同 adapter 也遵守请求间隔。网络/5xx 最多重试一次，15 秒超时；安全检查、验证码、403/429 立即停手，不执行 JS 校验或绕过登录。
-
-卓创每个北京时间自然日最多执行一轮（含失败）。网络请求之前，SQLite `source_runs` 唯一约束先占用当日额度；重启、手动触发与定时任务共享记录。失败后当天不会再次尝试，更换凭据也不能重置额度；请次日再运行。请求间隔至少 5 秒、超时 15 秒，仅 GET 网络/5xx 失败最多重试 1 次，登录 POST 不自动重试。验证码、401/403/429、访问异常不重试。数据仅供本站内部使用。
-
-## 免费报价口径
-
-| 品种 | 公开来源 | 固定现货口径（均为元/吨） |
-| --- | --- | --- |
-| A00 铝锭 | [世铝网](https://market.cnal.com/nanhai/) | 南海灵通佛山国产 A00 批售送厂均价 |
-| ABS | [普拉司日报](https://www.plasway.com/news/market-flash-news?id=198) | 华南吉化（揭阳）0215A 现货参考价 |
-| PC | 普拉司日报 | 华南山东利华益维远 WY-111BR 现货参考价 |
-| PMMA | [塑价365](https://www.pla365.com/pmma/) | 转载生意社橡塑大宗榜现货基准价，市场均价，非牌号成交价 |
-| 碳酸锂 | [我的钢铁新能源](https://xny.mysteel.com/) | 电池级早盘 Li2CO3≥99.5% 现货中间价；不取升贴水、合约价或晚盘 |
-| DMC | [有机硅商城](https://www.yjgmall.com/news/list.php?catid=73106) | 新料主流报价区间低端，非均价；税运未注明 |
-| 硅橡胶 | 有机硅商城 | 普通生胶主流报价区间低端，非混炼胶；税运未注明 |
-| PE | 普拉司日报 | 华南中石化海南 LLDPE DFDA 7042 现货参考价 |
-| PP 粒 | 普拉司日报 | 华南福建中景石化 T30S 拉丝粒料现货参考价 |
-| BOPET | [我的钢铁公开摘要](https://m.mysteel.com/hot/1647652.html) | 江浙 12μ 印刷基膜商谈区间低端 |
-| 包装用纸 | [生意社交易平台](https://www.rawmex.cn/ppinews/) | 上海兆美 140g/m² 瓦楞原纸，上海交货报价 |
-
-普拉司未明确税运条款的现货参考价不推断税运；塑价365页面明确说明是转载来源。区间低端是原文实际发布的数值，不将自行计算的中点称作上游均价。DMC/硅橡胶取“价格统计时间”，PMMA 取结构化 `spot` 的实际日期，均不使用页面更新日冒充报价日。BOPET 仅读取无需登录的公开摘要；不访问付费隐藏值。上游标题、市场、制造商、牌号、克重、单位或表头不符时拒绝入库。
-
-每个价格点保存品种、价格、单位、报价口径、报价日期、来源标识与名称、来源 URL、北京时间抓取时间。同一品种/来源/口径/报价日使用唯一键更新，重复抓取不会制造多条日线。
-
-## 接口与调度
-
-除注册/登录外，下表均需登录；抓取与来源状态仅管理员可用。提醒、日志、通道状态均只返回当前账号的数据。
-
-| 接口 | 用途 |
+| 关键项 | 用途 |
 | --- | --- |
-| `GET /api/health` | 返回 `{"status":"ok"}` |
-| `GET /api/commodities` | 11 个品种及来源、口径、启用状态 |
-| `GET /api/prices/latest` | 全品种目录、可空 `price_point`、`data_status`、`stale`、`change_amount`、`change_percent`、`previous_quote_date` |
-| `GET /api/prices/history?code=alu_a00&days=30` | 包含今天的最近 30 个自然日，按报价日期升序 |
-| `POST /api/fetch/run` | 同步执行一轮，逐源返回成功/跳过/失败；并发抓取返回 409 |
-| `GET /api/sources/status` | 来源状态、原因、最近尝试/成功时间、卓创当日额度及待接入品种 |
-| `GET /api/alerts/status` | 当前账号的邮件 / Telegram 通道状态，不返回凭据 |
-| `GET /api/alerts/rules` | 规则列表、通道状态、当前报价检查原因 |
-| `POST /api/alerts/rules` | 创建规则 |
-| `PUT /api/alerts/rules/{id}` | 更新规则（含启用 / 暂停） |
-| `DELETE /api/alerts/rules/{id}` | 删除规则，保留历史推送日志 |
-| `POST /api/alerts/check` | 立即检查启用规则，可能发送真实 Telegram |
-| `POST /api/alerts/test` | 发送一条通道测试消息并记录结果 |
-| `GET /api/alerts/logs?page=1&page_size=30` | 按时间倒序的发送日志（每页 1～100 条） |
-| `POST /api/auth/register`、`POST /api/auth/login` | 公开账号入口；注册永远为普通角色 |
-| `GET /api/auth/me`、`POST /api/auth/logout`、`POST /api/auth/password` | 当前账号、退出、修改密码 |
-| `GET /api/me/push-settings`、`PUT /api/me/push-settings` | 当前账号收件邮箱与通道状态 |
-| `GET /api/settings/telegram` | 管理员查看 Telegram 配置状态 |
-| `GET /api/admin/users`、`PUT /api/admin/users/{id}`、`DELETE /api/admin/users/{id}` | 管理员列出、禁用/启用、删除普通账号 |
-| `PUT /api/admin/registration` | 管理员开关注册，JSON 为 `{"enabled":true}` |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 首次管理员播种，密码至少 8 位 |
+| `PUBLIC_BASE_URL` | 公开站点来源；HTTPS 入口应显式配置 |
+| `SESSION_COOKIE_SECURE` | 默认 true；仅本地 HTTP 开发显式关闭 |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | 管理员 Telegram 通道 |
+| `RESEND_API_KEY` / `EMAIL_FROM` | 邮箱验证及个人邮件推送 |
 
-未知 `code` 返回 404，`days` 须为 1～3650，非法参数返回 422。没有数据时返回 `null` 或空历史列表。`stale=true` 表示无数据或报价日期早于北京时间今天；周末/节假日也会标记旧日期，不伪造新报价。来源抓取失败与已有价格新旧程度分别呈现，抓取失败不会删除历史记录。
+## 技术栈
 
-涨跌只比较相同品种 / 来源 / 口径 / 单位的最近两个报价日（跨周末仍取上一真实报价日）。涨跌额 = 最新价 − 上一报价日价格；涨跌幅 = 涨跌额 ÷ 上一报价日价格 × 100%，四舍五入保留两位小数。缺少对比报价时返回 `null`，页面显示“—”；持平才显示 0。详情图只绘制区间内已有报价，单点也会渲染，不补造历史。表格有真实旧报价时整行标黄，无报价时明确显示待接入 / 待配置。
+Python 3.12、FastAPI、APScheduler、SQLAlchemy + SQLite；httpx + selectolax 抓取。Vue 3、Vite、ECharts；前端构建后由后端静态托管。
 
-页面“刷新数据”只重新读取 API / SQLite，不触发上游采集。首页记录页面读取时间，详情保留报价日期、抓取时间和来源原文链接；请求失败时显示错误，可重试。
+## 目录
 
-## 前端开发与单独构建
-
-以下是开发用途，不是日常全站运行所必需。两个终端分别执行：
-
-```powershell
-# 终端一：后端，单 worker
-.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1 --reload --no-proxy-headers
-# 终端二：Vite 开发服务器，/api 代理到后端
-cd frontend
-npm ci
-npm run dev
+```text
+backend/app/       API、认证、行情采集与提醒
+backend/tests/     后端及审计回归
+backend/scripts/   维护、隔离 smoke 与历史回放
+frontend/src/      页面与组件
+frontend/tests/    前端回归
+data/             SQLite 与缓存（不提交）
+start.py          本地单服务入口
 ```
 
-打开 Vite 输出的本地地址（默认 <http://127.0.0.1:5173>）。单独构建：`cd frontend` 后执行 `npm ci`、`npm run build`。使用构建产物前重启后端，使其挂载 `frontend/dist`。日常推荐根目录 `python start.py`，无需开发服务器。
-
-APScheduler 在**每天 15:30，Asia/Shanghai** 触发，服务启动不自动抓取。仅服务进程运行时调度有效，不补抓停机期间错过的行情；跨源隔离失败，一个源出错后仍继续处理其他源。进程内抓取锁防止手动和定时重叠，卓创额外使用数据库日额度约束。请使用单 worker，不要同时启动多个服务进程，以免免费源重复请求。
-
-首次启动自动建表并同步 11 个品种。数据库为 `data/procurement.sqlite3`，包含 `commodities`、`price_points`，以及运行状态表 `source_states`、额度表 `source_runs`。第三阶段自动增建 `alert_rules` 和 `push_logs`，不改动已有价格和额度。不要删除额度表来重复触发卓创。
-
-## Telegram 提醒（管理员）
-
-仍使用 `python start.py` 启动并登录；打开 <http://127.0.0.1:8000/#/alerts> 管理自己的规则，<http://127.0.0.1:8000/#/push-logs> 查看自己的日志和发送测试。管理员通道为 Telegram，普通账号改走邮箱；个人邮箱在 `/#/push-settings` 配置。手机宽度也可通过导航进入。
-
-在根目录 `.env` 填写下列键，示例模板为 `.env.example`；不要提交真实值：
-
-```dotenv
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
-```
-
-向 Telegram 的 `@BotFather` 创建 Bot 获取 token，先向自己的 Bot 发送 `/start`，再填写目标会话的 chat_id。配置只从根目录 `.env` 读取，修改后下次检查立即生效，无需重启；不从进程的同名变量读取，也不在页面、接口、日志中显示凭据。缺少任一项时显示 `pending_configuration` / **待配置**；测试按钮会记录待配置日志，不发网络请求，不占规则日额度。已配置只表示字段齐全，发送结果仍需查看日志。
-
-规则可为全部 11 个品种预设，提交 JSON 为 `{"code":"alu_a00","kind":"daily_change","threshold":1,"enabled":true}`。`kind` 支持 `daily_change`（日涨跌幅绝对值 ≥ X%，包含涨和跌）、`price_gte`（价格 ≥ 阈值）、`price_lte`（价格 ≤ 阈值）；阈值必须大于 0，最多四位小数。价格阈值单位随品种展示。规则保存来源、报价口径和单位快照，配置变化后先跳过，需编辑保存重新确认。
-
-日涨跌幅比较同品种 / 来源 / 口径 / 单位的前一个真实报价日，跨周末仍取上一报价日；以未四舍五入值比较绝对值，等于阈值也触发。没有上一报价日时只跳过涨跌规则，到价规则仍可判断。仅北京时间当天的报价参与发送；暂无报价、旧报价、未来报价均不发提醒。页面规则列表说明当前跳过原因，暂停规则不参与检查。
-
-行情抓取完成后独立检查一次，另每 5 分钟检查一次；页面“立即检查规则”也可检查现有数据库，不请求上游。服务必须保持运行，不补发旧日提醒。推送通道异常不改变行情入库结果。
-
-同用户同规则同品种同通道在**北京时间自然日最多尝试一次**，发送前在短事务中重读条件与报价，跨午夜停止旧轮；网络请求在事务外。删除规则后日志保留，新增规则使用新编号且受创建额度限制。测试推送不占规则额度；邮件须已验证并受第七阶段共享配额限制，管理员 Telegram 测试行为保持原样。
-
-通过 [Telegram Bot API sendMessage](https://core.telegram.org/bots/api#sendmessage) 发送纯文本，超时 15 秒、不跟随跳转、不自动重试。收到 HTTP 200、`ok=true` 和有效 `message_id` 才标记 `sent` / 发送成功；此状态表示 Telegram 已接受，实际收信应在目标会话核对。`failed` 表示明确未确认成功，`unknown` 表示送达未知；`sending` 若在进程中断后残留，也按送达未知处理，不再次发送。日志保留时间、规则编号、内容、结果和 Telegram 消息编号，不保存 token 或 chat_id。需要代理时，按前述方法在**启动服务前**设置 HTTPS_PROXY 和 NO_PROXY，再重启服务。
-
-## 自测
-
-保持 uvicorn 在一个终端运行，在另一个终端执行：
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest backend/tests -q
-.\.venv\Scripts\python.exe backend/scripts/smoke.py --fetch
-```
-
-Linux 对应使用 `.venv/bin/python`。测试使用临时 SQLite 和隔离响应，不访问真实卓创，也不会把测试价格写进项目数据库。`smoke.py --fetch` 才执行真实手动抓取，检查健康、11 品种目录、A00 最新价/历史/元数据、来源状态和参数错误；结果保存在忽略提交的 `data/selftest.json`。省略 `--fetch` 则只读验收，不重复请求上游。
-
-也可逐个检查：
-
-```powershell
-$credential = Get-Credential -Message '采购行情管理员账号（密码不回显）'
-$loginBody = @{ username=$credential.UserName; password=$credential.GetNetworkCredential().Password } | ConvertTo-Json
-Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/auth/login -ContentType 'application/json' -Body $loginBody -SessionVariable procurementSession
-$loginBody = $null
-Invoke-RestMethod http://127.0.0.1:8000/api/health -WebSession $procurementSession
-Invoke-RestMethod http://127.0.0.1:8000/api/prices/latest -WebSession $procurementSession | ConvertTo-Json -Depth 8
-Invoke-RestMethod 'http://127.0.0.1:8000/api/prices/history?code=alu_a00&days=30' -WebSession $procurementSession | ConvertTo-Json -Depth 8
-Invoke-RestMethod http://127.0.0.1:8000/api/sources/status -WebSession $procurementSession | ConvertTo-Json -Depth 8
-# 需要实际抓取才执行，随后会检查提醒并可能推送：
-# Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/fetch/run -WebSession $procurementSession
-```
-
-第二阶段只读全站验收（先运行 `start.py`），随后执行页面与 SVG 组件自测：
-
-```powershell
-.\.venv\Scripts\python.exe backend/scripts/smoke_frontend.py
-cd frontend
-npm test
-```
-
-`smoke_frontend.py` 检查首页、构建资源、API 路由、11 品种、铝锭真实报价和 7 / 30 / 90 天历史，导出忽略提交的 `data/stage2-live.json`；`npm test` 读取此真实响应验收组件，包含 ECharts SVG 实际渲染、时间切换、搜索筛选、黄标、空历史、失败重试、并发响应防覆盖。自测通过后输出 `data/stage2-qa/alu-a00-chart.svg`。这些脚本不会写入价格库或触发抓取。服务非默认端口时给脚本加 `--base-url http://127.0.0.1:8010`。
-
-第三阶段自测：
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest backend/tests -q
-# 服务启动后执行：创建/编辑/删除本脚本的暂停规则，发送一次真实通道测试
-.\.venv\Scripts\python.exe backend/scripts/smoke_alerts.py
-# 首次回放下载最近三个公开真实报价日；网络需要时先配置 HTTPS_PROXY
-.\.venv\Scripts\python.exe backend/scripts/replay_alerts.py --download-history
-# 后续复用历史 HTML 缓存，无网络请求
-.\.venv\Scripts\python.exe backend/scripts/replay_alerts.py
-cd frontend
-npm test
-```
-
-`smoke_alerts.py` 可用 `--base-url http://127.0.0.1:8010` 指定服务，输出 `data/stage3-live.json`；缺配置时标注待配置，不作为失败。已配置时会真的发送测试消息。`replay_alerts.py` 将公开历史 HTML 缓存在 `data/stage3-history/`，通过原解析器验证口径，只写临时 SQLite；隔离通道明确记录 `replayed`，不会调用 Telegram，也不修改首页历史或规则。结果为 `data/stage3-replay.json`，验证三种条件、未触发、缺前价、跨日、重启、并发与修改后的日去重。单元测试和 Vue 组件测试验证错误及待配置路径，均不向真实通道发送消息。
-
-第四阶段逐品种真实验证（会请求该品种公开源并入库，不调用提醒服务）：
-
-```powershell
-.\.venv\Scripts\python.exe backend/scripts/verify_stage4_source.py abs
-# code 可替换为 pc、pmma、lithium_carbonate、dmc、silicone_rubber、pe、pp、bopet、paper
-# 运行中的全站验收：只读行情，创建/编辑/删除本脚本的暂停规则，不发推送
-.\.venv\Scripts\python.exe backend/scripts/smoke_stage4.py
-```
-
-`verify_stage4_source.py` 追加 `STAGE4_PROGRESS.md`、记录 `backend/tests/evidence/{code}.json` 并缓存公开响应；仅人工续跑/验收使用，不增加定时任务。完整测试仍为 `python -m pytest backend/tests -q`、`smoke_frontend.py`、前端 `npm test`；新解析器回归使用真实公开片段，测试期间禁止真实 HTTPTransport 网络。Linux 使用 `.venv/bin/python`，所有服务脚本支持 `--base-url` 指向自定义端口。
-
-## Docker 与云服务器说明
-
-部署交付仅包含 [docker-compose.yml](docker-compose.yml) 和 [DEPLOYMENT.md](DEPLOYMENT.md)，本阶段未连接或部署服务器。Compose 使用内联多阶段构建，Python 3.12 + Node 22 构建 Vue，最终单容器单 worker，数据持久卷、只读 `.env` 文件挂载、健康检查和日志轮转。将来在目标 Linux 主机按部署文档准备 `.env` 后运行：
-
-```bash
-docker compose config --quiet
-docker compose build --pull
-docker compose up -d
-```
-
-默认绑定服务器 `127.0.0.1:8000`，通过 SSH 隧道访问；备份、迁移、停止、回滚及网络要求见部署文档。需要 Docker Compose 2.17+。本机无 Docker，容器构建/运行尚未验证。
-
-阶段交付记录见 [STAGE1_REPORT.md](STAGE1_REPORT.md)、[STAGE2_REPORT.md](STAGE2_REPORT.md)、[STAGE3_REPORT.md](STAGE3_REPORT.md)、[STAGE4_REPORT.md](STAGE4_REPORT.md)、[STAGE5_REPORT.md](STAGE5_REPORT.md)、第六阶段 [AUDIT_REPORT.md](AUDIT_REPORT.md) 和 [STAGE7_REPORT.md](STAGE7_REPORT.md)。本次停在第七阶段，等待确认。
+部署、首次安装、代理与 HTTPS 配置、备份迁移、管理员恢复及自测命令统一见 [DEPLOYMENT.md](DEPLOYMENT.md)。

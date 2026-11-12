@@ -19,7 +19,7 @@ import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / "backend/scripts"
+OUTPUT = Path(os.environ.get("PROCUREMENT_SMOKE_OUTPUT", str(ROOT / "backend/scripts")))
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -93,7 +93,7 @@ def run_http(folder, port, password):
         expect("admin_sources", admin.get("/api/sources/status"), 200)
         for actor, name in [(personal, "stage7_user"), (other, "stage7_other")]:
             registered = expect(name + "_register", actor.post("/api/auth/register", json={"username": name, "password": password}), 201)
-            assert registered.json()["role"] == "user"
+            assert set(registered.json()) == {"message"}
             expect(name + "_login", actor.post("/api/auth/login", json={"username": name, "password": password}), 200)
         for path in ("/api/sources/status", "/api/settings/telegram", "/api/admin/users"):
             expect("ordinary_denied:" + path, personal.get(path), 403)
@@ -196,6 +196,7 @@ def digest_file(path):
 
 def main():
     import httpx
+    OUTPUT.mkdir(parents=True, exist_ok=True)
     tools_folder = ROOT / ".tools"
     tools_folder.mkdir(exist_ok=True)
     old_replay = ROOT / "data/stage3-replay.json"
@@ -205,7 +206,7 @@ def main():
         folder = Path(temporary).resolve()
         assert folder.parent == tools_folder.resolve() and folder.name.startswith("stage7-live-")
         password = secrets.token_urlsafe(24)
-        (folder / ".env").write_text("ADMIN_USERNAME=stage7_admin\nADMIN_PASSWORD=" + password + "\nRESEND_API_KEY=stage7-isolated-mail-placeholder\nEMAIL_FROM=sender@example.invalid\n", encoding="utf-8")
+        (folder / ".env").write_text("SESSION_COOKIE_SECURE=false\nADMIN_USERNAME=stage7_admin\nADMIN_PASSWORD=" + password + "\nRESEND_API_KEY=stage7-isolated-mail-placeholder\nEMAIL_FROM=sender@example.invalid\n", encoding="utf-8")
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
@@ -259,7 +260,7 @@ def main():
             (OUTPUT / "stage7_live.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
             (OUTPUT / "stage7_live.txt").write_text("STAGE7 LIVE_HTTP\n" + json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("STAGE7 LIVE_HTTP " + json.dumps(result, ensure_ascii=False))
-    print("证据：backend/scripts/stage7_live.json、stage7_live.txt、stage7_replay.json")
+    print("证据：" + "、".join(str(OUTPUT / name) for name in ("stage7_live.json", "stage7_live.txt", "stage7_replay.json")))
 
 
 if __name__ == "__main__":

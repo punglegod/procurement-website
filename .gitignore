@@ -14,3 +14,7 @@ frontend/dist/
 AUDIT_REPORT.md
 backend/scripts/audit_secrets_result.json
 backend/scripts/audit_secrets_review_shapes.json
+# 第八阶段过程报告和审计输出只留工作区，回归测试源文件正常提交。
+/STAGE8_REPORT.md
+/backend/scripts/stage8_*.txt
+/backend/scripts/stage8_*.json

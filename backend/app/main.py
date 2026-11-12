@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 import re
 from .models import PushSetting
 
-from .config import COMMODITIES, COMMODITY_MAP, ROOT, TIMEZONE
+from .config import COMMODITIES, COMMODITY_MAP, ROOT, TIMEZONE, read_public_origin
 from .db import initialize_database
 from .service import FetchBusy, FetchService, latest_prices, price_history
 from .alerts import AlertService, RuleInput, channel_status
@@ -40,6 +40,7 @@ def scheduled_fetch():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    read_public_origin()  # 配置错误在接流量前明确失败，不静默退回请求头。
     initialize_database()
     scheduler = AsyncIOScheduler(timezone=TIMEZONE)
     scheduler.add_job(scheduled_fetch, CronTrigger(hour=15, minute=30, timezone=TIMEZONE),
@@ -53,7 +54,7 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="采购行情网站", version="0.7.0", lifespan=lifespan)
+app = FastAPI(title="采购行情网站", version="0.8.0", lifespan=lifespan)
 app.include_router(auth_router)
 
 
@@ -72,7 +73,10 @@ async def protect_site(request: Request, call_next):
     # Cookie SameSite 外再校验写请求来源，拒绝跨站请求及非 JSON 表单。
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         origin = request.headers.get("origin")
-        expected = f"{request.url.scheme}://{request.url.netloc}"
+        try:
+            expected = read_public_origin() or f"{request.url.scheme}://{request.url.netloc}"
+        except ValueError:
+            return JSONResponse({"detail": "站点公开来源配置无效，请联系管理员"}, status_code=503)
         if (origin and origin != expected) or request.headers.get("sec-fetch-site") == "cross-site":
             return JSONResponse({"detail": "拒绝跨站写请求"}, status_code=403)
         if request.headers.get("content-type", "").split(";")[0] != "application/json" and request.headers.get("content-length", "0") != "0":

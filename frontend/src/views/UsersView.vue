@@ -7,9 +7,9 @@ async function action(callback) { busy.value = true; error.value = ''; try { awa
 onMounted(() => action(async () => {}))
 </script>
 <template>
-  <section class="page-heading"><div><h1>用户管理</h1><p>普通账号只能管理自己的提醒和邮箱。</p></div><button class="button" :disabled="busy" @click="action(() => mutateJson('/api/admin/registration', 'PUT', { enabled: !enabled }))">{{ enabled ? '关闭注册' : '开放注册' }}</button></section>
+  <h1 class="page-title">用户管理</h1>
   <p v-if="error" class="notice error-notice" role="alert">{{ error }}</p>
-  <section class="panel"><div class="alert-table-wrap"><table class="alert-table"><thead><tr><th>账号</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
+  <section class="panel"><div class="panel-toolbar"><h2>账号列表</h2><button class="button" :disabled="busy" @click="action(() => mutateJson('/api/admin/registration', 'PUT', { enabled: !enabled }))">{{ enabled ? '关闭注册' : '开放注册' }}</button></div><div class="alert-table-wrap"><table class="alert-table"><thead><tr><th>账号</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
     <tr v-for="u in users" :key="u.id"><td>{{ u.username }}</td><td>{{ u.role }}</td><td>{{ u.enabled ? '正常' : '已禁用' }}</td><td v-if="u.role !== 'admin'">
       <button class="text-button" :disabled="busy" @click="action(() => mutateJson(`/api/admin/users/${u.id}`, 'PUT', { enabled: !u.enabled }))">{{ u.enabled ? '禁用' : '启用' }}</button>
       <button v-if="removing !== u.id" class="text-button" :disabled="busy" @click="removing = u.id">删除</button>

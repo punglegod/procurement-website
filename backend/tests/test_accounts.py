@@ -47,9 +47,11 @@ def accounts(tmp_path, monkeypatch):
         ids = []
         for client, name in [(a, "account_a"), (b, "account_b")]:
             response = client.post("/api/auth/register", json={"username": name, "password": PASSWORD})
-            assert response.status_code == 201 and response.json()["role"] == "user"
-            ids.append(response.json()["id"])
+            assert response.status_code == 201 and set(response.json()) == {"message"}
             assert client.post("/api/auth/login", json={"username": name, "password": PASSWORD}).status_code == 200
+            account = client.get("/api/auth/me").json()
+            assert account["role"] == "user"
+            ids.append(account["id"])
         yield admin, a, b, ids, factory, alerts
     engine.dispose()
 
@@ -85,7 +87,7 @@ def test_role_permissions_and_registration_switch(accounts):
     for extra in [{"role": "admin"}, {"user_id": 1}, {"enabled": True}]:
         assert a.post("/api/auth/register", json={"username": "elevated", "password": PASSWORD} | extra).status_code == 422
     assert a.post("/api/auth/register", json={"username": "short", "password": "123"}).status_code == 422
-    assert a.post("/api/auth/register", json={"username": "account_a", "password": PASSWORD}).status_code == 409
+    assert a.post("/api/auth/register", json={"username": "account_a", "password": PASSWORD}).status_code == 201
 
 
 def test_rules_settings_logs_and_daily_dedup_are_personal(accounts):
