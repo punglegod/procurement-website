@@ -22,3 +22,8 @@ backend/scripts/audit_secrets_review_shapes.json
 /backend/scripts/stage9_*.txt
 /backend/scripts/stage9_*.json
 /backend/scripts/audit_secrets_*.json
+
+/PROMPTS.md
+/STAGE*_REPORT.md
+/STAGE*_PROGRESS.md
+/stage*-prompt.txt
