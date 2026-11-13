@@ -283,7 +283,7 @@ def test_sci99_test_without_credentials_no_network_and_with_credentials_auth_onl
     assert calls == ["/usercenter/newaccount/getUserInfoDetail"]
 
 
-def test_sci99_runs_only_at_nine_and_daily_quota_persists(accounts, monkeypatch):
+def test_sci99_auto_runs_only_at_close_and_daily_quota_persists(accounts, monkeypatch):
     factory=accounts[4]
     monkeypatch.setattr(config,"read_settings_encryption_key",lambda:Fernet.generate_key().decode())
     key=Fernet.generate_key().decode()
@@ -291,7 +291,7 @@ def test_sci99_runs_only_at_nine_and_daily_quota_persists(accounts, monkeypatch)
     SourceSettings(factory).save(Sci99Input(enabled=True,cookie=secrets.token_urlsafe(20)))
     calls=[]
     monkeypatch.setattr(Sci99Adapter,"fetch",lambda self:(calls.append(True),(_ for _ in ()).throw(AccessStopped("已停止")))[1])
-    monkeypatch.setattr(FetchService,"store",lambda *args:0)
+    monkeypatch.setattr(FetchService,"store",lambda *args,**kwargs:0)
     # 免费源也只用mock，不请求真实网站。
     from backend.app.adapters.free import FreeAdapter
     monkeypatch.setattr(FreeAdapter,"fetch",lambda self:[])
@@ -301,11 +301,11 @@ def test_sci99_runs_only_at_nine_and_daily_quota_persists(accounts, monkeypatch)
             module,name=source["adapter"].split(":")
             monkeypatch.setattr(getattr(importlib.import_module("backend.app.adapters."+module),name),"fetch",lambda self:[])
     fetcher=FetchService(factory)
-    for slot in ("08:00","08:30",None,"15:30"):
+    for slot in ("08:00","08:30","09:00","15:30"):
         assert next(r for r in fetcher.run(slot=slot)["results"] if r["source"]=="sci99")["status"] == "scheduled_only"
     assert not calls
-    assert next(r for r in fetcher.run(slot="09:00")["results"] if r["source"]=="sci99")["status"] == "blocked"
-    assert next(r for r in FetchService(factory).run(slot="09:00")["results"] if r["source"]=="sci99")["status"] == "daily_limit"
+    assert next(r for r in fetcher.run(slot="16:30")["results"] if r["source"]=="sci99")["status"] == "blocked"
+    assert next(r for r in FetchService(factory).run(slot="16:30")["results"] if r["source"]=="sci99")["status"] == "daily_limit"
     assert len(calls)==1
     print("STAGE9_SCI99 other_slots_skipped=True daily_attempts=1 restart_preserves_limit=True")
 

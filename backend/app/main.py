@@ -14,7 +14,8 @@ from fastapi.exception_handlers import request_validation_exception_handler
 import re
 from .models import PushSetting
 
-from .config import COMMODITIES, COMMODITY_MAP, FETCH_SLOTS, ROOT, TIMEZONE, read_public_origin
+from .config import COMMODITIES, COMMODITY_MAP, ALL_FETCH_SLOTS, ROOT, TIMEZONE, read_public_origin
+from .fetch_policy import selected_codes
 from .db import initialize_database
 from .service import FetchBusy, FetchService, latest_prices, price_history, quote_options
 from .quotes import choose
@@ -71,8 +72,8 @@ async def lifespan(app: FastAPI):
     initialize_database()
     warn_encryption_configuration()
     scheduler = AsyncIOScheduler(timezone=TIMEZONE)
-    # 固定Asia/Shanghai四轮；保留15:30，日报由09:00轮完成事件触发。
-    for hour, minute in FETCH_SLOTS:
+    # 原四轮只处理免费源待办；独立16:30卓创收盘轮，日报仍由09:00完成触发。
+    for hour, minute in ALL_FETCH_SLOTS:
         slot = f"{hour:02}:{minute:02}"
         scheduler.add_job(scheduled_fetch, CronTrigger(hour=hour, minute=minute, timezone=TIMEZONE), args=[slot],
                           id="prices_" + slot.replace(":", ""), max_instances=1, coalesce=True, misfire_grace_time=120)
@@ -186,10 +187,20 @@ def save_quote_selection(code: str, data: SelectionInput, user=Depends(current_u
     return quote_options(code, user.id, service.session_factory)
 
 
+class FetchInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    codes: list[str] = Field(min_length=1, max_length=11)
+
+    @field_validator("codes")
+    @classmethod
+    def valid_codes(cls, value):
+        return selected_codes(value)
+
+
 @app.post("/api/fetch/run")
-def fetch_run(user=Depends(admin_user)):
+def fetch_run(data: FetchInput | None = None, user=Depends(admin_user)):
     try:
-        return round_runner().run()
+        return round_runner().run(codes=data.codes if data else None)
     except FetchBusy:
         raise HTTPException(status_code=409, detail="抓取任务正在执行，请稍后查看来源状态") from None
 

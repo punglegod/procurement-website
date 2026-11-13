@@ -9,8 +9,10 @@ from dotenv import dotenv_values
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
 TIMEZONE = ZoneInfo("Asia/Shanghai")
-# 固定北京时间四轮；09:00 完成后日报，15:30 原轮次继续保留。
+# 免费源四轮保留；卓创独立16:30收盘后轮，09:00完成后仍生成日报。
 FETCH_SLOTS = ((8, 0), (8, 30), (9, 0), (15, 30))
+SCI99_FETCH_SLOT = (16, 30)
+ALL_FETCH_SLOTS = (*FETCH_SLOTS, SCI99_FETCH_SLOT)
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"

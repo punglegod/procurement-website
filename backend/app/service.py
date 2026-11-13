@@ -11,7 +11,8 @@ from sqlalchemy.exc import IntegrityError
 from .adapters.common import AccessStopped, SourceError, now
 from .adapters.free import FreeAdapter
 from .adapters.sci99 import Sci99Adapter, Sci99Stopped
-from .config import COMMODITIES, COMMODITY_MAP, SOURCES, read_sci99_settings, sci99_configured, latest_workday
+from .config import COMMODITIES, COMMODITY_MAP, SOURCES, ALL_FETCH_SLOTS, SCI99_FETCH_SLOT, read_sci99_settings, latest_workday
+from .fetch_policy import SCI99_CODES, selected_codes, captured_codes, record_captured
 from .db import SessionLocal
 from .models import PricePoint, SourceRun, SourceState, QuoteEntry, QuoteImport
 from .quotes import QuoteRow, store_row, legacy_row, selected_entry, observations, observation_dict, label, entry_dict
@@ -49,7 +50,7 @@ class FetchService:
                 session.rollback()
                 return False
 
-    def store(self, points, source):
+    def store(self, points, source, *, automatic_day=None):
         if not points:
             raise SourceError("来源未返回价格点")
         changed = 0
@@ -68,14 +69,17 @@ class FetchService:
                 )
                 changed += session.execute(stmt).rowcount
                 store_row(session, legacy_row(point))
+            record_captured(session, points, automatic_day if now().date() == automatic_day else None)
             session.commit()
         return changed
 
-    def store_sci99(self, points, outcomes):
+    def store_sci99(self, points, outcomes, *, codes=None, automatic_day=None):
         from .adapters.sci99_quotes import PRODUCT_PAGES
         reports, changed = [], 0
         imported_at = now().replace(tzinfo=None)
         for code in PRODUCT_PAGES:
+            if codes is not None and code not in codes:
+                continue
             rows = [p for p in points if isinstance(p, QuoteRow) and p.code == code]
             outcome = next((o for o in outcomes if o["code"] == code), {"status": "failed"})
             count = len({(r.product_name, r.specification, r.market, r.price_type) for r in rows})
@@ -99,6 +103,7 @@ class FetchService:
                             raise SourceError("来源不匹配")
                         _, delta = store_row(session, row)
                         stored += delta
+                    record_captured(session, rows, automatic_day if now().date() == automatic_day else None)
                     message = f"{count}条目，{len(rows)}条日线，更新{stored}条，无报价{sum(r.price is None for r in rows)}条，单位待核{sum(r.unit == '待核定' for r in rows)}条"
                     session.add(QuoteImport(code=code, source="sci99", count=count, status="ok", message=message,
                                             fetched_at=imported_at))
@@ -117,85 +122,147 @@ class FetchService:
             reports.append({"code": code, "status": status, "count": count, "message": message})
         return changed, reports
 
-    def run(self, *, slot=None):
+    def fetch_free(self, code, automatic_day):
+        item = COMMODITY_MAP[code]
+        source = item.source
+        try:
+            self.set_state(source, "running", "正在抓取")
+            if source == "free":
+                adapter = FreeAdapter()
+            else:
+                module, name = SOURCES[source]["adapter"].split(":")
+                adapter = getattr(import_module(f".adapters.{module}", package=__package__), name)()
+            points = adapter.fetch()
+            if any(point.code != code for point in points):
+                raise SourceError("免费源返回了未请求的品类，拒绝入库")
+            changed = self.store(points, source, automatic_day=automatic_day)
+            self.set_state(source, "ok", f"正常：更新 {changed} 个价格点" if changed else "正常：无更新", success=True)
+            return {"code": code, "source": source, "outcome": "success", "status": "ok", "stored": changed,
+                    "message": "已入库" if changed else "无更新", "prices": [
+                        {"code": p.code, "price": float(p.price), "unit": p.unit, "quote_date": str(p.quote_date)} for p in points]}
+        except Exception as error:
+            message = str(error) if isinstance(error, SourceError) else "内部处理失败，请检查数据库和解析器"
+            status = "blocked" if isinstance(error, AccessStopped) else "failed"
+            with self.session_factory() as session:
+                session.execute(update(QuoteEntry).where(QuoteEntry.code == code, QuoteEntry.source == source).values(missing=True))
+                session.commit()
+            self.set_state(source, status, message)
+            logger.warning("source=%s code=%s status=%s reason=%s", source, code, status, message)
+            return {"code": code, "source": source, "outcome": "failed", "status": status, "message": message}
+
+    def fetch_sci99(self, manager, codes, automatic_day):
+        revision, adapter = None, None
+        try:
+            configured = manager.state()
+            if configured["status"] != "enabled":
+                return {"source": "sci99", "outcome": "failed", "status": configured["status"],
+                        "message": configured["message"], "commodities": []}
+            if automatic_day is not None and not self.claim_sci99_day():
+                return {"source": "sci99", "outcome": "skipped", "status": "daily_limit",
+                        "message": "卓创今日自动额度已领取；手动抓取不受此额度限制", "commodities": []}
+            self.set_state("sci99", "running", "正在按所选品类抓取")
+            settings, revision = manager.resolve_for_verification()
+            adapter = Sci99Adapter(settings=settings, codes=codes)
+            points = adapter.fetch()
+            try:
+                manager.record_auth_result(getattr(adapter, "auth_status", None), revision)
+            except Exception:
+                logger.error("卓创登录验证状态写入失败，请检查数据库")
+            changed, reports = self.store_sci99(points, getattr(adapter, "quote_results", []), codes=codes, automatic_day=automatic_day)
+            for report in reports:
+                rows = [p for p in points if isinstance(p, QuoteRow) and p.code == report["code"]]
+                valid = [p for p in rows if p.price is not None and p.price > 0 and p.unit != "待核定"
+                         and (automatic_day is None or p.quote_date == automatic_day)]
+                if report["status"] == "ok" and not valid:
+                    report["status"] = "no_valid_price"
+                    report["message"] += "；未取得" + ("今日" if automatic_day else "") + "有效价格，免费兜底"
+            failed = any(r["status"] != "ok" for r in reports)
+            status = "partial" if failed else "ok"
+            message = "；".join(f"{COMMODITY_MAP[r['code']].name}：{r['message']}" for r in reports)
+            self.set_state("sci99", status, message[:300], success=not failed)
+            return {"source": "sci99", "outcome": "failed" if failed else "success", "status": status,
+                    "stored": changed, "message": message, "commodities": reports}
+        except Exception as error:
+            status = error.status if isinstance(error, Sci99Stopped) else "blocked" if isinstance(error, AccessStopped) else "failed"
+            message = str(error) if isinstance(error, Sci99Stopped) else "卓创登录、报价或配置未确认，保留旧值并免费兜底"
+            if revision is not None:
+                try:
+                    auth_status = status if isinstance(error, Sci99Stopped) and status != "quote_pending" else "access_blocked" if isinstance(error, AccessStopped) and not isinstance(error, Sci99Stopped) else getattr(adapter, "auth_status", None)
+                    manager.record_auth_result(auth_status, revision)
+                except Exception:
+                    logger.error("卓创登录验证状态写入失败，请检查数据库")
+            self.store_sci99([], [{"code": code, "status": "blocked" if isinstance(error, AccessStopped) else "failed"} for code in codes], codes=codes)
+            self.set_state("sci99", status, message)
+            logger.warning("source=sci99 status=%s reason=%s", status, message)
+            return {"source": "sci99", "outcome": "failed", "status": status, "message": message, "commodities": []}
+
+    def run(self, *, slot=None, codes=None):
+        if slot is not None and (codes is not None or slot not in {f"{h:02}:{m:02}" for h, m in ALL_FETCH_SLOTS}):
+            raise ValueError("自动轮不接受选品类或未知时段")
+        scope = selected_codes(codes)
+        sci_slot = f"{SCI99_FETCH_SLOT[0]:02}:{SCI99_FETCH_SLOT[1]:02}"
+        if slot == sci_slot:
+            scope = [code for code in scope if code in SCI99_CODES]
         if not run_lock.acquire(blocking=False):
             raise FetchBusy()
-        results = []
         try:
-            source_settings = SourceSettings(self.session_factory, legacy_reader=lambda: read_sci99_settings())
-            for source in SOURCES:
-                sci_auth_revision = None
-                if source == "sci99":
-                    configured = source_settings.state()
-                    if configured["status"] != "enabled":
-                        results.append({"source": source, "outcome": "skipped", "status": configured["status"], "message": configured["message"]})
+            day = now().date() if slot is not None else None
+            manager = SourceSettings(self.session_factory, legacy_reader=lambda: read_sci99_settings())
+            sci_enabled = manager.routing_enabled()
+            with self.session_factory() as session:
+                captured = captured_codes(session, day) if day else set()
+            source_results, commodity_results, sci_todo, free_todo = {}, {}, [], []
+            for code in scope:
+                source = "sci99" if sci_enabled and code in SCI99_CODES else COMMODITY_MAP[code].source
+                if code in captured:
+                    result = {"code": code, "source": source, "outcome": "skipped", "status": "already_captured", "message": "今日已抓取"}
+                elif sci_enabled and code in SCI99_CODES:
+                    if slot is None or slot == sci_slot:
+                        sci_todo.append(code)
                         continue
-                    # 四轮中只有09:00允许卓创；手动与其余三轮也不消耗卓创额度。
-                    if slot != "09:00":
-                        results.append({"source": source, "outcome": "skipped", "status": "scheduled_only", "message": "卓创仅09:00轮执行"})
-                        continue
-                    if not self.claim_sci99_day():
-                        results.append({"source": source, "outcome": "skipped", "status": "daily_limit", "message": "卓创今日已尝试，跳过；保留上次结果"})
-                        continue
-                try:
-                    self.set_state(source, "running", "正在抓取")
-                    if source == "free":
-                        adapter = FreeAdapter()
-                    elif source == "sci99":
-                        settings, sci_auth_revision = source_settings.resolve_for_verification()
-                        adapter = Sci99Adapter(settings=settings)
+                    result = {"code": code, "source": "sci99", "outcome": "skipped", "status": "scheduled_only", "message": "卓创品类等待16:30收盘后自动轮；未调用免费源"}
+                elif slot == sci_slot:
+                    result = {"code": code, "source": source, "outcome": "skipped", "status": "disabled", "message": "卓创未开启，免费源仍按原四轮执行"}
+                else:
+                    free_todo.append(code)
+                    continue
+                commodity_results[code] = result
+                if source != "sci99":
+                    source_results[source] = result
+            # 免费源仅执行路由允许的品类；手动指定的品类逐个执行。
+            for code in free_todo:
+                result = self.fetch_free(code, day)
+                source_results[result["source"]] = result
+                commodity_results[code] = result
+            if sci_todo:
+                sci = self.fetch_sci99(manager, sci_todo, day)
+                source_results["sci99"] = sci
+                for code in sci_todo:
+                    report = next((r for r in sci["commodities"] if r["code"] == code), None)
+                    if report and report["status"] == "ok":
+                        commodity_results[code] = {"code": code, "source": "sci99", "outcome": "success", **report}
                     else:
-                        module, name = SOURCES[source]["adapter"].split(":")
-                        adapter = getattr(import_module(f".adapters.{module}", package=__package__), name)()
-                    points = adapter.fetch()
-                    if source == "sci99":
-                        source_settings.record_auth_result(getattr(adapter, "auth_status", None), sci_auth_revision)
-                        changed, reports = self.store_sci99(points, getattr(adapter, "quote_results", []))
-                        failed = any(r["status"] != "ok" for r in reports)
-                        status = "partial" if failed else "ok"
-                        message = "；".join(f"{COMMODITY_MAP[r['code']].name}：" + ("失败：" if r["status"] != "ok" else "") + r["message"] for r in reports)
-                        self.set_state(source, status, "全量报价：" + message[:280], success=not failed)
-                        results.append({"source": source, "outcome": "failed" if failed else "success", "status": status,
-                                        "stored": changed, "message": message, "commodities": reports})
-                        continue
-                    changed = self.store(points, source)
-                    self.set_state(source, "ok", f"正常：更新 {changed} 个价格点" if changed else "正常：无更新", success=True)
-                    results.append({"source": source, "outcome": "success", "status": "ok", "stored": changed,
-                                    "prices": [{"code": point.code, "price": float(point.price), "unit": point.unit} for point in points]})
-                except Exception as error:
-                    # 本轮该来源未取得完整清单，所选旧条目继续保留，但不得冒充本轮更新。
-                    with self.session_factory() as session:
-                        session.execute(update(QuoteEntry).where(QuoteEntry.source == source).values(missing=True))
-                        session.commit()
-                    # 不输出 HTTP 异常原文、响应体、Cookie 或账号，避免凭据进入日志。
-                    message = str(error) if isinstance(error, SourceError) else "内部处理失败，请检查数据库和解析器"
-                    if source == "sci99":
-                        message = ("卓创登录异常、验证码或风控，已停止；请人工检查官网" if isinstance(error, AccessStopped)
-                                   else "卓创报价口径尚未绑定到当前行情，未替换免费源" if isinstance(error, SourceError) and str(error) == "卓创报价口径尚未绑定到当前行情，未替换免费源"
-                                   else "卓创报价解析或处理未确认，请人工核定（未影响免费源）")
-                    status = "blocked" if isinstance(error, AccessStopped) else "failed"
-                    if source == "sci99" and isinstance(error, Sci99Stopped):
-                        status, message = error.status, str(error)
-                        auth_status = status if status != "quote_pending" else getattr(adapter, "auth_status", None)
-                        if sci_auth_revision is not None:
-                            try:
-                                source_settings.record_auth_result(auth_status, sci_auth_revision)
-                            except Exception:
-                                logger.error("卓创登录验证状态写入失败，请检查数据库")
-                    try:
-                        self.set_state(source, status, message)
-                    except Exception:
-                        logger.error("来源状态写入失败，请检查数据库")
-                    logger.warning("source=%s status=%s reason=%s", source, status, message)
-                    results.append({"source": source, "outcome": "failed", "status": status, "message": message})
-            # 入库完成后独立检查提醒；通道故障不改变抓取成功状态。
+                        # 16:30失败当轮立即兜底；手动同样只对勾选失败品类补抓一次。
+                        fallback = self.fetch_free(code, day)
+                        source_results[fallback["source"]] = fallback
+                        primary = report["message"] if report else sci["message"]
+                        commodity_results[code] = fallback | {"fallback": True, "primary_status": report["status"] if report else sci["status"],
+                            "message": f"卓创：{primary}；免费兜底：{fallback['message']}"}
+            # 保留来源结果结构供旧调用方读取；未调用的来源明确记跳过，绝不暗中请求。
+            if "sci99" not in source_results:
+                state = manager.state() if not sci_enabled else {"status": "scheduled_only", "message": "卓创仅16:30自动轮；手动可选品类不限次"}
+                source_results["sci99"] = {"source": "sci99", "outcome": "skipped", "status": state["status"], "message": state["message"]}
+            for source in SOURCES:
+                if source not in source_results:
+                    source_results[source] = {"source": source, "outcome": "skipped", "status": "not_requested", "message": "本轮未调度此来源"}
             try:
                 from .alerts import AlertService
                 alert_result = AlertService(self.session_factory).run()
             except Exception:
                 logger.error("行情入库完成，但提醒检查失败，请查看推送服务")
                 alert_result = {"status": "failed", "message": "提醒检查失败"}
-            return {"results": results, "sources": self.statuses(), "alerts": alert_result}
+            return {"results": [source_results[s] for s in SOURCES], "commodity_results": [commodity_results[c] for c in scope],
+                    "sources": self.statuses(), "alerts": alert_result}
         finally:
             run_lock.release()
 

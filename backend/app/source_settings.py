@@ -77,6 +77,12 @@ class SourceSettings:
         self.factory = factory
         self.legacy_reader = legacy_reader or config.read_sci99_settings
 
+    def routing_enabled(self):
+        # 路由服从保存的总开关；缺凭据/坏密钥不能悄悄恢复四轮免费常规采集。
+        with self.factory() as session:
+            enabled = session.get(SiteSetting, "sci99_enabled")
+            return enabled.value == "true" if enabled else config.SOURCES["sci99"].get("enabled", False)
+
     def resolve(self, session=None):
         if session is None:
             with self.factory() as owned:
@@ -120,7 +126,7 @@ class SourceSettings:
                 settings, enabled, backend = self.resolve(session)
                 configured = config.sci99_configured(settings)
                 status = "enabled" if configured and enabled else "configured_disabled" if configured else "pending_credentials"
-                message = "已启用（仅09:00轮全量抓取；每账号自选口径）" if status == "enabled" else "已配置未启用" if configured else "未配置（待配置凭据）"
+                message = "已启用（自动16:30；手动选品类不限次；失败免费兜底）" if status == "enabled" else "已配置未启用" if configured else "未配置（待配置凭据）"
                 mode = "cookie" if settings.get("SCI99_COOKIE") else "password" if configured else "none"
                 if not configured:
                     auth_status, checked_at = "pending_credentials", None
@@ -141,8 +147,8 @@ class SourceSettings:
             if latest_import:
                 imports = list(session.scalars(select(QuoteImport).where(QuoteImport.source == "sci99", QuoteImport.fetched_at == latest_import.fetched_at).order_by(QuoteImport.id)))
                 passed = sum(row.status == "ok" for row in imports)
-                quote_status = "ok" if passed == len(imports) == 10 else "partial" if passed else "failed"
-                quote_message = f"最近一次全量采集：成功{passed}/10品种；" + "；".join(f"{row.code} {row.count}条（{row.status}）" for row in imports)
+                quote_status = "ok" if passed == len(imports) else "partial" if passed else "failed"
+                quote_message = f"最近一次采集：成功{passed}/{len(imports)}品种；" + "；".join(f"{row.code} {row.count}条（{row.status}）" for row in imports)
             return {"enabled": enabled, "configured": configured, "backend_configured": backend,
                     "key_ready": cipher() is not None, "status": status, "message": message, **masks,
                     "last_result": state.message if state else "尚未测试或抓取",

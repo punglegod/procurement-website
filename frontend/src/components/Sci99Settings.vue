@@ -43,7 +43,7 @@ onBeforeUnmount(() => { sequence++ })
     <p v-if="state">{{ state.message }}</p>
     <p v-if="state && !state.key_ready" class="notice">服务器未配置有效 SETTINGS_ENCRYPTION_KEY，不能保存凭据。请先由运维配置密钥。</p>
     <form class="account-form" @submit.prevent="operate('save')">
-      <label class="checkbox-label"><input v-model="enabled" type="checkbox" :disabled="busy || !state" /> 启用卓创（仅09:00轮）</label>
+      <label class="checkbox-label"><input v-model="enabled" type="checkbox" :disabled="busy || !state" /> 启用卓创（自动16:30，手动不限次）</label>
       <label>账号 <span v-if="state?.username_mask">当前：{{ state.username_mask }}</span><input v-model="username" autocomplete="off" maxlength="254" :disabled="busy || !state?.key_ready" placeholder="留空保留当前配置" /></label>
       <label>密码 <span v-if="state?.password_mask">当前：{{ state.password_mask }}</span><input v-model="password" type="password" autocomplete="new-password" maxlength="254" :disabled="busy || !state?.key_ready" placeholder="留空保留当前配置" /></label>
       <label>Cookie（人工官网登录后配置）<span v-if="state?.cookie_mask">当前：{{ state.cookie_mask }}</span><textarea v-model="cookie" autocomplete="off" maxlength="8192" rows="3" :disabled="busy || !state?.key_ready" placeholder="官网账密登录依赖 JS；留空保留已保存 Cookie" /></label>
@@ -54,7 +54,7 @@ onBeforeUnmount(() => { sequence++ })
     <p v-if="state">上次登录或抓取：{{ state.last_result }} <span v-if="state.last_attempt_at">（{{ time(state.last_attempt_at) }}）</span></p>
     <p v-if="state?.auth_message" data-testid="sci99-auth-state">登录态：{{ state.auth_message }}<span v-if="state.verified_at">（验证时间：{{ time(state.verified_at) }}）</span><span v-else-if="state.auth_checked_at">（检查时间：{{ time(state.auth_checked_at) }}）</span></p>
     <p v-if="state?.quote_message" data-testid="sci99-quote-state">报价：{{ state.quote_message }}</p>
-    <p>后台凭据加密保存，优先于服务器配置；测试连接只验证登录。启用后仅09:00轮抓取10品种的全部报价，免费源继续保留。每个账号在品种详情自行选择口径；验证码或风控会立即停止。</p>
+    <p>后台凭据加密保存，优先于服务器配置；测试连接只验证登录。开启后10品类常规采集改走卓创，每天16:30自动一次，失败当轮免费兜底；手动可选品类且不限次。A00仍走免费源。每个账号在详情自选口径，验证码或风控立即停止。</p>
     <p v-if="error" role="alert" class="notice error-notice">{{ error }}<button v-if="!state" class="text-button" @click="load">重新读取</button></p>
     <p v-if="notice" role="status" class="notice">{{ notice }}</p>
   </section>

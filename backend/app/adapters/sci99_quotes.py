@@ -123,11 +123,13 @@ def group_pages(adapter, client, origin, context, group, *, paged=False):
         page += 1
 
 
-def fetch_all(adapter, client):
+def fetch_all(adapter, client, codes=None):
     result = []
     adapter.quote_results = []
     stopped = False
     for code, urls in PRODUCT_PAGES.items():
+        if codes is not None and code not in codes:
+            continue
         if stopped:
             adapter.quote_results.append({"code": code, "status": "blocked", "message": "卓创已因登录/风控停手，本品种未请求"})
             continue

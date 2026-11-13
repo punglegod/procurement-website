@@ -21,7 +21,7 @@ STATE_MESSAGES = {
     "cookie_unconfirmed": "Cookie 未确认，响应结构、跳转或网络状态无法确认；已停止",
     "login_unconfirmed": "账密登录结果未确认，已停止；请人工检查官网",
     "access_blocked": "触发验证码或风控已停手，请人工检查官网",
-    "quote_pending": "尚无完整报价，等待09:00轮全量采集（登录有效不代表报价完整）",
+    "quote_pending": "尚无完整报价，等待16:30自动采集或手动选品类抓取（登录有效不代表报价完整）",
 }
 
 
@@ -62,10 +62,11 @@ def _unique_json_pairs(pairs):
 
 
 class Sci99Adapter(HttpSource):
-    def __init__(self, settings=None, **kwargs):
+    def __init__(self, settings=None, codes=None, **kwargs):
         super().__init__(interval=5.0, **kwargs)
         self.settings = settings if settings is not None else read_sci99_settings()
         self.auth_status = None
+        self.codes = codes
 
     def check_response(self, response, *, sci99=False):
         if _risk_response(response):
@@ -159,7 +160,7 @@ class Sci99Adapter(HttpSource):
             if self.settings.get("SCI99_COOKIE"):
                 self.verify_cookie(client)
             from .sci99_quotes import fetch_all
-            return fetch_all(self, client)
+            return fetch_all(self, client, codes=self.codes)
 
     def login(self, client):
         # 仅支持官网直接提供的普通表单；不模拟 JS 加密、不处理任何验证码。

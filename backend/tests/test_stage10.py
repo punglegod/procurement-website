@@ -36,6 +36,14 @@ def seed(factory):
         return ids
 
 
+def closing_prices(factory):
+    # 09:00日报只读上一已结束报价日，今天的手动盘中价格不能充作收盘价。
+    with factory() as session:
+        store_row(session,row(day=AT.date()-timedelta(days=1)))
+        store_row(session,row("华北",price="3500",low=None,high=None,specification="AA级高瓦140g",day=AT.date()-timedelta(days=1)))
+        session.commit()
+
+
 def test_rows_identity_ranges_units_and_history_preserved(accounts):
     factory=accounts[4]; first, second=seed(factory)
     with factory() as session:
@@ -105,7 +113,7 @@ def test_rules_recheck_current_user_selection_before_claim(accounts):
 
 
 def test_daily_digest_uses_each_users_selection_and_range_text(accounts):
-    admin,a,b,users,factory,alerts=accounts; first,second=seed(factory); alerts.clock=lambda:AT
+    admin,a,b,users,factory,alerts=accounts; first,second=seed(factory); closing_prices(factory); alerts.clock=lambda:AT
     for client,entry in [(a,first),(b,second),(admin,first)]:
         client.put("/api/me/quote-selections/paper",json={"entry_id":entry})
         client.put("/api/me/push-settings",json={"email":"sample@example.invalid","daily_digest_enabled":True})
@@ -123,7 +131,7 @@ def test_daily_digest_uses_each_users_selection_and_range_text(accounts):
 
 
 def test_unsent_digest_rebuilds_after_choice_but_attempted_digest_stays_frozen(accounts):
-    _,a,_,users,factory,alerts=accounts; first,second=seed(factory);alerts.clock=lambda:AT
+    _,a,_,users,factory,alerts=accounts; first,second=seed(factory);closing_prices(factory);alerts.clock=lambda:AT
     a.put("/api/me/push-settings",json={"email":"sample@example.invalid","daily_digest_enabled":True})
     a.put("/api/me/quote-selections/paper",json={"entry_id":first})
     notifier=NotificationService(alerts);notifier.daily_digest()
@@ -138,7 +146,7 @@ def test_unsent_digest_rebuilds_after_choice_but_attempted_digest_stays_frozen(a
 
 
 def test_digest_selection_changed_before_claim_uses_new_choice(accounts,monkeypatch):
-    _,a,_,users,factory,alerts=accounts;first,second=seed(factory);alerts.clock=lambda:AT
+    _,a,_,users,factory,alerts=accounts;first,second=seed(factory);closing_prices(factory);alerts.clock=lambda:AT
     a.put("/api/me/push-settings",json={"email":"sample@example.invalid","daily_digest_enabled":True})
     mark_verified(factory,users[0]);a.put("/api/me/quote-selections/paper",json={"entry_id":first})
     notifier=NotificationService(alerts);original=notifier.send

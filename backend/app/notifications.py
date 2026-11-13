@@ -30,7 +30,9 @@ def build_digest(session, day, abnormal=False, user_id=None):
         blocks.append("09:00 轮抓取异常，本报为最近可用数据")
     for item in COMMODITIES:
         entry = selected_entry(session, user_id, item.code) if user_id is not None else None
-        points = observations(session, entry, day=day) if entry else [] if user_id is not None else list(session.scalars(select(PricePoint).where(
+        # 09:00日报的卓创日度收盘价仅取已结束报价日，排除早间手动抓到的当日盘中值。
+        closing_day = day - timedelta(days=1) if entry and entry.source == "sci99" else day
+        points = observations(session, entry, day=closing_day) if entry else [] if user_id is not None else list(session.scalars(select(PricePoint).where(
             PricePoint.code == item.code, PricePoint.source == item.source,
             PricePoint.quote_basis == item.quote_basis, PricePoint.unit == item.unit,
             PricePoint.quote_date <= day).order_by(PricePoint.quote_date)))

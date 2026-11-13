@@ -1,4 +1,4 @@
-"""北京时间四轮采集编排；09:00结束触发日报，周期巡检只补异常/漏跑。"""
+"""四轮免费源待办与16:30卓创轮；09:00结束仍触发日报。"""
 from datetime import datetime, time, timedelta
 import json
 import logging
@@ -7,7 +7,8 @@ from time import monotonic
 
 from sqlalchemy import select
 
-from .config import COMMODITIES, FETCH_SLOTS
+from .config import COMMODITIES, ALL_FETCH_SLOTS, SCI99_FETCH_SLOT
+from .fetch_policy import SCI99_CODES, selected_codes
 from .models import FetchBatch
 from .service import FetchBusy, run_lock
 
@@ -36,7 +37,12 @@ class RoundRunner:
     def alarm(self, event, text):
         return self.safe(lambda: self.notifications.progress(event, "⚠️ 调度告警 · " + text))
 
-    def run(self, slot=None):
+    def run(self, slot=None, codes=None):
+        scope = selected_codes(codes)
+        if slot == f"{SCI99_FETCH_SLOT[0]:02}:{SCI99_FETCH_SLOT[1]:02}":
+            scope = [code for code in scope if code in SCI99_CODES]
+        if slot is not None and codes is not None:
+            raise ValueError("自动轮不接受手动选品类")
         if not round_lock.acquire(blocking=False):
             raise FetchBusy()
         batch_id = None
@@ -44,7 +50,7 @@ class RoundRunner:
             if run_lock.locked():
                 raise FetchBusy()
             at = self.clock()
-            if slot is not None and slot not in {f"{h:02}:{m:02}" for h, m in FETCH_SLOTS}:
+            if slot is not None and slot not in {f"{h:02}:{m:02}" for h, m in ALL_FETCH_SLOTS}:
                 raise ValueError("未知抓取轮次")
             with self.factory() as session:
                 session.connection().exec_driver_sql("BEGIN IMMEDIATE")
@@ -55,20 +61,35 @@ class RoundRunner:
                 session.add(batch)
                 session.commit()
                 batch_id = batch.id
-            number = next((index+1 for index, (h, m) in enumerate(FETCH_SLOTS) if slot == f"{h:02}:{m:02}"), None)
-            label = f"第{number}轮 {slot}" if number else f"手动 {at:%H:%M}"
+            number = next((index+1 for index, (h, m) in enumerate(ALL_FETCH_SLOTS) if slot == f"{h:02}:{m:02}"), None)
+            label = "卓创收盘轮 16:30" if slot == "16:30" else f"第{number}轮 {slot}" if number else f"手动 {at:%H:%M}"
             reference = f"运行 #{batch_id}"
-            self.safe(lambda: self.notifications.progress(f"{batch_id}:start", f"🌅 抓取开始 · {label}，共 11 个品种（{reference}）"))
+            self.safe(lambda: self.notifications.progress(f"{batch_id}:start", f"🌅 抓取开始 · {label}，共 {len(scope)} 个品种（{reference}）"))
             started = monotonic()
             try:
-                output = self.fetcher.run(slot=slot)
+                output = self.fetcher.run(slot=slot, **({"codes": codes} if codes is not None else {}))
                 results = output["results"]
                 status = "partial" if any(row["outcome"] == "failed" for row in results) else "complete"
             except Exception:
                 output, results, status = {}, [], "failed"
                 self.alarm(f"morning:{at.date()}" if slot == "09:00" else f"{batch_id}:error", f"{label}整体异常（{reference}），未完成品种见完成消息；后续轮次继续")
-            outcomes, lines = [], []
-            for item in COMMODITIES:
+            outcomes, lines, skipped = [], [], 0
+            for item in (item for item in COMMODITIES if item.code in scope):
+                if "commodity_results" in output:
+                    result = next((row for row in output["commodity_results"] if row["code"] == item.code), None)
+                    outcome = (result or {}).get("outcome", "failed")
+                    if outcome == "skipped":
+                        skipped += 1
+                    else:
+                        outcomes.append(outcome == "success")
+                    detail = (result or {}).get("message", "本轮未取得结果")
+                    if outcome == "failed":
+                        detail = "失败：" + detail
+                    point = next(iter((result or {}).get("prices", [])), None)
+                    if point:
+                        detail += f" · {point['price']:g} {point['unit']}（报价日期{point['quote_date']}）"
+                    lines.append(item.name + "：" + detail)
+                    continue
                 result = next((row for row in results if row["source"] == item.source), None)
                 good = bool(result and result["outcome"] == "success")
                 outcomes.append(good)
@@ -79,17 +100,17 @@ class RoundRunner:
                     detail = "失败：" + ((result or {}).get("message", "本轮未取得结果")[:160])
                 lines.append(item.name + "：" + detail)
             sci = next((row for row in results if row["source"] == "sci99"), None)
-            if sci:
+            if sci and "commodity_results" not in output:
                 lines.append("卓创资讯（另计）：" + sci.get("message", sci["status"]))
             elapsed = round(monotonic() - started, 1)
-            summary = {"success": sum(outcomes), "failed": len(outcomes)-sum(outcomes), "seconds": elapsed,
+            summary = {"success": sum(outcomes), "failed": len(outcomes)-sum(outcomes), "skipped": skipped, "codes": scope, "seconds": elapsed,
                        "items": lines, "source_results": results}
             with self.factory() as session:
                 batch = session.get(FetchBatch, batch_id)
                 batch.status, batch.finished_at = status, self.clock().replace(tzinfo=None)
                 batch.summary = json.dumps(summary, ensure_ascii=False)
                 session.commit()
-            complete = f"✅ 抓取完成 · {label}，成功 {sum(outcomes)} / 失败 {11-sum(outcomes)}，耗时 {elapsed:g} 秒（{reference}）\n" + "\n".join(lines)
+            complete = f"✅ 抓取完成 · {label}，成功 {sum(outcomes)} / 失败 {len(outcomes)-sum(outcomes)} / 跳过 {skipped}，耗时 {elapsed:g} 秒（{reference}）\n" + "\n".join(lines)
             self.safe(lambda: self.notifications.progress(f"{batch_id}:end", complete))
             if slot == "09:00" and self.clock().date() == at.date():
                 self.safe(lambda: self.notifications.daily_digest(abnormal=status != "complete"))

@@ -145,7 +145,7 @@ def test_admin_states_timestamp_source_visibility_and_redaction(accounts, monkey
     assert result["status"] == state["auth_status"] == source["auth_status"] == status
     assert bool(state["verified_at"]) == (status == "cookie_valid")
     assert state["auth_checked_at"] and state["quote_status"] == source["quote_status"] == "quote_pending"
-    assert not state["enabled"] and "等待09:00轮全量采集" in source["message"]
+    assert not state["enabled"] and "等待16:30自动采集" in source["message"]
     assert hidden not in json.dumps([result, state, source]) + caplog.text
     for path in ("/api/admin/sources/sci99", "/api/sources/status"):
         assert ordinary.get(path).status_code == 403
@@ -225,9 +225,9 @@ def test_fetch_stop_remembers_cookie_validity_without_switching_free_source(acco
     if persist_failure:
         def failed_record(*args): raise RuntimeError("private database error")
         monkeypatch.setattr(SourceSettings, "record_auth_result", failed_record)
-    result = FetchService(factory).run(slot="09:00")
+    result = FetchService(factory).run(slot="16:30")
     row = next(x for x in result["sources"] if x["source"] == "sci99")
-    assert row["status"] == row["quote_status"] == "quote_pending"
+    assert row["status"] == "quote_pending" and row["quote_status"] == "failed"
     if persist_failure:
         assert row["auth_status"] == "cookie_unconfirmed" and not row["verified_at"]
         # 免费 mock 没有报价应如实失败；仍须走到最后一个来源，不能被卓创写入错误中断。
