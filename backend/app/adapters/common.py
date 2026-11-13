@@ -65,6 +65,9 @@ class HttpSource:
         self.interval = interval
         self.last_request = 0.0
 
+    def check_response(self, response, *, sci99=False):
+        check_access(response, sci99=sci99)
+
     def request(self, client: httpx.Client, method: str, url: str, *, sci99=False, **kwargs):
         # 每个请求之间留出间隔；仅网络错误或服务端错误允许重试一次。
         for attempt in range(2):
@@ -83,7 +86,7 @@ class HttpSource:
                 raise SourceError("网络连接失败或超时（15 秒）；请检查网络/代理") from None
             # 风控响应必须在重试逻辑之前检查，包括服务端错误页面。
             try:
-                check_access(response, sci99=sci99)
+                self.check_response(response, sci99=sci99)
             except AccessStopped:
                 raise
             except SourceError:

@@ -180,6 +180,8 @@ ABS_HTML = '''<table><tr><th>品种</th><th>市场</th><th>牌号</th><th>价格
 def test_sci99_cookie_fetch_parse_and_store_framework(factory):
     def handler(request):
         assert request.headers.get("cookie") == "test=isolated"
+        if request.url.path == "/usercenter/newaccount/getUserInfoDetail":
+            return httpx.Response(200, json={"code": 200, "data": {"user_info_id": 900001, "user_name": "redacted"}})
         return httpx.Response(200, text=ABS_HTML)
 
     settings = EMPTY_SETTINGS | {"SCI99_COOKIE": "test=isolated"}

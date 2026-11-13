@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .adapters.common import AccessStopped, SourceError, now
 from .adapters.free import FreeAdapter
-from .adapters.sci99 import Sci99Adapter
+from .adapters.sci99 import Sci99Adapter, Sci99Stopped
 from .config import COMMODITIES, COMMODITY_MAP, SOURCES, read_sci99_settings, sci99_configured, latest_workday
 from .db import SessionLocal
 from .models import PricePoint, SourceRun, SourceState
@@ -76,6 +76,7 @@ class FetchService:
         try:
             source_settings = SourceSettings(self.session_factory, legacy_reader=lambda: read_sci99_settings())
             for source in SOURCES:
+                sci_auth_revision = None
                 if source == "sci99":
                     configured = source_settings.state()
                     if configured["status"] != "enabled":
@@ -93,12 +94,14 @@ class FetchService:
                     if source == "free":
                         adapter = FreeAdapter()
                     elif source == "sci99":
-                        settings, _, _ = source_settings.resolve()
+                        settings, sci_auth_revision = source_settings.resolve_for_verification()
                         adapter = Sci99Adapter(settings=settings)
                     else:
                         module, name = SOURCES[source]["adapter"].split(":")
                         adapter = getattr(import_module(f".adapters.{module}", package=__package__), name)()
                     points = adapter.fetch()
+                    if source == "sci99":
+                        source_settings.record_auth_result(getattr(adapter, "auth_status", None), sci_auth_revision)
                     if source == "sci99" and any(COMMODITY_MAP[p.code].source != "sci99" for p in points):
                         raise SourceError("卓创报价口径尚未绑定到当前行情，未替换免费源")
                     changed = self.store(points, source)
@@ -113,6 +116,14 @@ class FetchService:
                                    else "卓创报价口径尚未绑定到当前行情，未替换免费源" if isinstance(error, SourceError) and str(error) == "卓创报价口径尚未绑定到当前行情，未替换免费源"
                                    else "卓创报价解析或处理未确认，请人工核定（未影响免费源）")
                     status = "blocked" if isinstance(error, AccessStopped) else "failed"
+                    if source == "sci99" and isinstance(error, Sci99Stopped):
+                        status, message = error.status, str(error)
+                        auth_status = status if status != "quote_pending" else getattr(adapter, "auth_status", None)
+                        if sci_auth_revision is not None:
+                            try:
+                                source_settings.record_auth_result(auth_status, sci_auth_revision)
+                            except Exception:
+                                logger.error("卓创登录验证状态写入失败，请检查数据库")
                     try:
                         self.set_state(source, status, message)
                     except Exception:
@@ -145,12 +156,18 @@ class FetchService:
                 status, message = configured["status"], configured["message"]
             elif status == "running" and not run_lock.locked():
                 status, message = "interrupted", "上次抓取被中断；卓创当天额度不会重置"
+            if source == "sci99":
+                verified = "验证时间：" + configured["verified_at"] if configured["verified_at"] else ""
+                for detail in (configured["auth_message"], verified, configured["quote_message"]):
+                    if detail and detail not in message:
+                        message += "；" + detail
             result.append({
                 "source": source, "name": config["name"], "status": status, "message": message,
                 "last_attempt_at": timestamp(state.last_attempt_at), "last_success_at": timestamp(state.last_success_at),
                 "daily_limit_reached": bool(run) if source == "sci99" else False,
                 "enabled_codes": [item.code for item in COMMODITIES if item.source == source and item.enabled],
                 "pending_codes": [item.code for item in COMMODITIES if item.source == source and not item.enabled],
+                **({key: configured[key] for key in ("auth_status", "auth_message", "auth_checked_at", "verified_at", "quote_status", "quote_message")} if source == "sci99" else {}),
             })
         return result
 

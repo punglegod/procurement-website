@@ -274,11 +274,13 @@ def test_sci99_test_without_credentials_no_network_and_with_credentials_auth_onl
     assert admin.post("/api/admin/sources/sci99/test").json()["status"] == "pending_credentials"
     settings={"SCI99_USER":"", "SCI99_PASS":"", "SCI99_COOKIE":"isolated=value", "SCI99_LOGIN_URL":""}
     calls=[]
-    with httpx.Client(transport=httpx.MockTransport(lambda request:(calls.append(request.url.path),httpx.Response(200,text="<p>退出登录</p>"))[1])) as client:
+    from pathlib import Path
+    payload=json.loads((Path(__file__).parent/'fixtures/sci99/user-info-valid.json').read_text(encoding='utf-8'))
+    with httpx.Client(transport=httpx.MockTransport(lambda request:(calls.append(request.url.path),httpx.Response(200,json=payload))[1])) as client:
         adapter=Sci99Adapter(settings=settings,client=client)
         adapter.interval=0
         adapter.test_connection()
-    assert calls == ["/"]
+    assert calls == ["/usercenter/newaccount/getUserInfoDetail"]
 
 
 def test_sci99_runs_only_at_nine_and_daily_quota_persists(accounts, monkeypatch):

@@ -91,6 +91,11 @@ def run_http(folder, port, password):
         prices = expect("authenticated_prices", admin.get("/api/prices/latest"), 200).json()["items"]
         assert len(prices) == 11 and all(row["price_point"] is None for row in prices)
         expect("admin_sources", admin.get("/api/sources/status"), 200)
+        sci = expect("admin_sci99_classified_state", admin.get("/api/admin/sources/sci99"), 200).json()
+        assert sci["auth_status"] == "pending_credentials" and sci["quote_status"] == "quote_pending"
+        assert sci["verified_at"] is None and sci["enabled"] is False
+        test = expect("admin_sci99_unconfigured_no_network", admin.post("/api/admin/sources/sci99/test"), 200).json()
+        assert test["status"] == "pending_credentials"
         for actor, name in [(personal, "stage7_user"), (other, "stage7_other")]:
             registered = expect(name + "_register", actor.post("/api/auth/register", json={"username": name, "password": password}), 201)
             assert set(registered.json()) == {"message"}
@@ -98,6 +103,9 @@ def run_http(folder, port, password):
         for path in ("/api/sources/status", "/api/settings/telegram", "/api/admin/users"):
             expect("ordinary_denied:" + path, personal.get(path), 403)
         expect("ordinary_fetch_denied", personal.post("/api/fetch/run"), 403)
+        expect("ordinary_sci99_state_denied", personal.get("/api/admin/sources/sci99"), 403)
+        expect("ordinary_sci99_save_denied", personal.put("/api/admin/sources/sci99", json={"enabled": False}), 403)
+        expect("ordinary_sci99_test_denied", personal.post("/api/admin/sources/sci99/test"), 403)
         address = "stage7-recipient@example.invalid"
         settings = expect("save_unverified_email", personal.put("/api/me/push-settings", json={"email": address}), 200)
         assert settings.json()["email_verified"] is False

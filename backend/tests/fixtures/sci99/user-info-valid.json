@@ -1,0 +1,43 @@
+{
+  "code": 200,
+  "message": "redacted",
+  "data": {
+    "bindList": [
+      {
+        "safe_mobile": "redacted",
+        "account_type": 900001,
+        "bind_status": 0,
+        "user_type": 900001,
+        "user_name": "redacted",
+        "link_man": null,
+        "insert_time": "redacted",
+        "user_info_id": 900001,
+        "safe_email": null
+      }
+    ],
+    "account_type": 0,
+    "last_login_time": "redacted",
+    "enterprise": "redacted",
+    "user_name": "redacted",
+    "slsPhone": "redacted",
+    "is_overseas": 0,
+    "register_time": "redacted",
+    "user_type": 900001,
+    "slsName": "redacted",
+    "main_user": 900001,
+    "department": 900001,
+    "email": null,
+    "user_status": 0,
+    "address": "",
+    "register_source": 900001,
+    "track_state": null,
+    "link_man": "redacted",
+    "mobile": "redacted",
+    "safe_mobile": "redacted",
+    "source_site_id": 900001,
+    "phone": null,
+    "duty": null,
+    "user_info_id": 900001,
+    "safe_email": null
+  }
+}
