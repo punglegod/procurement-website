@@ -38,7 +38,7 @@ COMMODITIES = (
     CommodityConfig("pe", "PE", "free_pe", "普拉司华南市场 LLDPE 中石化海南 DFDA 7042 现货参考价", enabled=True),
     CommodityConfig("pp", "PP 粒", "free_pp", "普拉司华南市场 PP 福建中景石化 T30S 拉丝粒料现货参考价", enabled=True),
     CommodityConfig("bopet", "BOPET", "free_bopet", "我的钢铁/隆众公开摘要 江浙 BOPET 12μ印刷基膜现货商谈区间低端", enabled=True),
-    CommodityConfig("paper", "包装用纸（瓦楞原纸）", "free_paper", "生意社交易平台 上海兆美纸业 140g/m² 瓦楞原纸 上海交货现货报价", enabled=True),
+    CommodityConfig("paper", "包装用纸", "free_paper", "生意社交易平台 上海兆美纸业 140g/m² 瓦楞原纸 上海交货现货报价", enabled=True),
 )
 COMMODITY_MAP = {item.code: item for item in COMMODITIES}
 SOURCES = {

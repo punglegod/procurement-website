@@ -4,7 +4,7 @@ import threading
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 
@@ -13,7 +13,8 @@ from .adapters.free import FreeAdapter
 from .adapters.sci99 import Sci99Adapter, Sci99Stopped
 from .config import COMMODITIES, COMMODITY_MAP, SOURCES, read_sci99_settings, sci99_configured, latest_workday
 from .db import SessionLocal
-from .models import PricePoint, SourceRun, SourceState
+from .models import PricePoint, SourceRun, SourceState, QuoteEntry, QuoteImport
+from .quotes import QuoteRow, store_row, legacy_row, selected_entry, observations, observation_dict, label, entry_dict
 from .source_settings import SourceSettings
 
 logger = logging.getLogger(__name__)
@@ -66,8 +67,55 @@ class FetchService:
                     where=PricePoint.price != stmt.excluded.price,
                 )
                 changed += session.execute(stmt).rowcount
+                store_row(session, legacy_row(point))
             session.commit()
         return changed
+
+    def store_sci99(self, points, outcomes):
+        from .adapters.sci99_quotes import PRODUCT_PAGES
+        reports, changed = [], 0
+        imported_at = now().replace(tzinfo=None)
+        for code in PRODUCT_PAGES:
+            rows = [p for p in points if isinstance(p, QuoteRow) and p.code == code]
+            outcome = next((o for o in outcomes if o["code"] == code), {"status": "failed"})
+            count = len({(r.product_name, r.specification, r.market, r.price_type) for r in rows})
+            status, message = outcome["status"], outcome.get("message", "未取得完整报价")
+            try:
+                with self.session_factory() as session:
+                    session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+                    previous = session.scalar(select(QuoteImport).where(QuoteImport.code == code,
+                        QuoteImport.source == "sci99", QuoteImport.status == "ok").order_by(QuoteImport.id.desc()).limit(1))
+                    if status != "ok" or not rows:
+                        raise SourceError("本品种未取得完整报价，保留最后数据")
+                    keys = [(r.product_name, r.specification, r.market, r.price_type, r.quote_date) for r in rows]
+                    if len(set(keys)) != len(keys):
+                        raise SourceError("同条目同日报价重复，拒绝覆盖或截断清单")
+                    if previous and previous.count >= 4 and count < previous.count / 2:
+                        raise SourceError("条目数较上次成功骤降超过50%，拒绝部分入库并告警")
+                    session.execute(update(QuoteEntry).where(QuoteEntry.code == code, QuoteEntry.source == "sci99").values(missing=True))
+                    stored = 0
+                    for row in rows:
+                        if row.source != "sci99":
+                            raise SourceError("来源不匹配")
+                        _, delta = store_row(session, row)
+                        stored += delta
+                    message = f"{count}条目，{len(rows)}条日线，更新{stored}条，无报价{sum(r.price is None for r in rows)}条，单位待核{sum(r.unit == '待核定' for r in rows)}条"
+                    session.add(QuoteImport(code=code, source="sci99", count=count, status="ok", message=message,
+                                            fetched_at=imported_at))
+                    session.commit()
+                    changed += stored
+            except Exception as error:
+                status = "blocked" if status == "blocked" else "failed"
+                message = str(error) if isinstance(error, SourceError) else "本品种报价入库失败；保留最后数据"
+                with self.session_factory() as session:
+                    session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+                    session.execute(update(QuoteEntry).where(QuoteEntry.code == code, QuoteEntry.source == "sci99").values(missing=True))
+                    session.add(QuoteImport(code=code, source="sci99", count=count, status=status, message=message,
+                                            fetched_at=imported_at))
+                    session.commit()
+                logger.warning("sci99 code=%s status=%s count=%d reason=%s", code, status, count, message)
+            reports.append({"code": code, "status": status, "count": count, "message": message})
+        return changed, reports
 
     def run(self, *, slot=None):
         if not run_lock.acquire(blocking=False):
@@ -102,13 +150,23 @@ class FetchService:
                     points = adapter.fetch()
                     if source == "sci99":
                         source_settings.record_auth_result(getattr(adapter, "auth_status", None), sci_auth_revision)
-                    if source == "sci99" and any(COMMODITY_MAP[p.code].source != "sci99" for p in points):
-                        raise SourceError("卓创报价口径尚未绑定到当前行情，未替换免费源")
+                        changed, reports = self.store_sci99(points, getattr(adapter, "quote_results", []))
+                        failed = any(r["status"] != "ok" for r in reports)
+                        status = "partial" if failed else "ok"
+                        message = "；".join(f"{COMMODITY_MAP[r['code']].name}：" + ("失败：" if r["status"] != "ok" else "") + r["message"] for r in reports)
+                        self.set_state(source, status, "全量报价：" + message[:280], success=not failed)
+                        results.append({"source": source, "outcome": "failed" if failed else "success", "status": status,
+                                        "stored": changed, "message": message, "commodities": reports})
+                        continue
                     changed = self.store(points, source)
                     self.set_state(source, "ok", f"正常：更新 {changed} 个价格点" if changed else "正常：无更新", success=True)
                     results.append({"source": source, "outcome": "success", "status": "ok", "stored": changed,
                                     "prices": [{"code": point.code, "price": float(point.price), "unit": point.unit} for point in points]})
                 except Exception as error:
+                    # 本轮该来源未取得完整清单，所选旧条目继续保留，但不得冒充本轮更新。
+                    with self.session_factory() as session:
+                        session.execute(update(QuoteEntry).where(QuoteEntry.source == source).values(missing=True))
+                        session.commit()
                     # 不输出 HTTP 异常原文、响应体、Cookie 或账号，避免凭据进入日志。
                     message = str(error) if isinstance(error, SourceError) else "内部处理失败，请检查数据库和解析器"
                     if source == "sci99":
@@ -165,7 +223,7 @@ class FetchService:
                 "source": source, "name": config["name"], "status": status, "message": message,
                 "last_attempt_at": timestamp(state.last_attempt_at), "last_success_at": timestamp(state.last_success_at),
                 "daily_limit_reached": bool(run) if source == "sci99" else False,
-                "enabled_codes": [item.code for item in COMMODITIES if item.source == source and item.enabled],
+                "enabled_codes": [item.code for item in COMMODITIES if item.code != "alu_a00"] if source == "sci99" and configured["enabled"] else [item.code for item in COMMODITIES if item.source == source and item.enabled],
                 "pending_codes": [item.code for item in COMMODITIES if item.source == source and not item.enabled],
                 **({key: configured[key] for key in ("auth_status", "auth_message", "auth_checked_at", "verified_at", "quote_status", "quote_message")} if source == "sci99" else {}),
             })
@@ -185,7 +243,9 @@ def serialize_price(point):
     }
 
 
-def latest_prices(session_factory=SessionLocal):
+def latest_prices(session_factory=SessionLocal, user_id=None):
+    if user_id is not None:
+        return selected_prices(session_factory, user_id)
     source_states = {item["source"]: item for item in FetchService(session_factory).statuses()}
     result = []
     with session_factory() as session:
@@ -215,13 +275,62 @@ def latest_prices(session_factory=SessionLocal):
     return result
 
 
-def price_history(code, days, session_factory=SessionLocal):
+def price_history(code, days, session_factory=SessionLocal, user_id=None):
     item = COMMODITY_MAP[code]
     since = now().date() - timedelta(days=days - 1)
     with session_factory() as session:
+        if user_id is not None:
+            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            entry = selected_entry(session, user_id, code)
+            points = observations(session, entry, since=since) if entry else []
+            result = {"code": code, "days": days, "selected_entry_id": entry.id if entry else None,
+                      "quote_basis": label(entry) if entry else item.quote_basis,
+                      "selection_missing": bool(entry and entry.missing),
+                      "items": [observation_dict(p, entry) for p in points]}
+            session.commit()
+            return result
         points = session.scalars(select(PricePoint).where(
             PricePoint.code == code, PricePoint.source == item.source,
             PricePoint.quote_basis == item.quote_basis, PricePoint.unit == item.unit,
             PricePoint.quote_date >= since,
         ).order_by(PricePoint.quote_date)).all()
         return {"code": code, "days": days, "quote_basis": item.quote_basis, "items": [serialize_price(p) for p in points]}
+
+
+def selected_prices(factory, user_id):
+    states = {s["source"]: s for s in FetchService(factory).statuses()}
+    result = []
+    with factory() as session:
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+        for item in COMMODITIES:
+            entry = selected_entry(session, user_id, item.code)
+            points = observations(session, entry) if entry else []
+            point = points[-1] if points else None
+            previous = points[-2] if len(points) > 1 else None
+            if point and point.unit == "待核定":
+                previous = None
+            change = point.price - previous.price if previous else None
+            percent = (change / previous.price * 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if previous else None
+            state = states.get(entry.source if entry else item.source, {"status": "unknown", "message": "来源已停用，保留历史报价"})
+            missing = bool(entry and entry.missing)
+            result.append({"code": item.code, "name": item.name, "source": entry.source if entry else item.source,
+                "unit": point.unit if point else entry.last_unit if entry else item.unit, "quote_basis": label(entry) if entry else item.quote_basis,
+                "selected_entry_id": entry.id if entry else None, "selection_missing": missing,
+                "data_status": state["status"], "message": "所选口径本轮未更新" if missing else state["message"],
+                "stale": point is None or point.quote_date < latest_workday(now().date()),
+                "price_point": observation_dict(point, entry) if point else None,
+                "change_amount": float(change) if change is not None else None,
+                "change_percent": float(percent) if percent is not None else None,
+                "previous_quote_date": str(previous.quote_date) if previous else None})
+        session.commit()
+    return result
+
+
+def quote_options(code, user_id, factory=SessionLocal):
+    with factory() as session:
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+        entry = selected_entry(session, user_id, code)
+        result = {"code": code, "selected_entry_id": entry.id if entry else None,
+                  "items": [entry_dict(session, e) for e in session.scalars(select(QuoteEntry).where(QuoteEntry.code == code).order_by(QuoteEntry.id))]}
+        session.commit()
+        return result

@@ -40,13 +40,14 @@ def initialize_database(db_engine=engine):
     email_columns = {c["name"] for c in inspect(db_engine).get_columns("push_settings")} if "push_settings" in tables else set()
     stage7_upgrade = "users" in tables and ("email_verified_at" not in email_columns or "rate_limit_buckets" not in tables)
     stage9_upgrade = "users" in tables and ("daily_digest_enabled" not in email_columns or not {"fetch_batches", "daily_digests", "notification_claims"}.issubset(tables))
+    stage10_upgrade = "users" in tables and not {"quote_entries", "quote_observations", "user_quote_selections", "quote_imports", "user_daily_digests"}.issubset(tables)
     backup = None
     # SQLite backup API 包含 WAL 中已提交的数据；备份完成后才允许任何结构变更。
-    if first_upgrade or legacy or stage7_upgrade or stage9_upgrade:
+    if first_upgrade or legacy or stage7_upgrade or stage9_upgrade or stage10_upgrade:
         path = Path(db_engine.url.database)
         folder = path.parent / "backup"
         folder.mkdir(parents=True, exist_ok=True)
-        previous_stage = "stage5" if first_upgrade or legacy else "stage7" if stage7_upgrade else "stage9"
+        previous_stage = "stage5" if first_upgrade or legacy else "stage7" if stage7_upgrade else "stage9" if stage9_upgrade else "stage10"
         backup = folder / f"{path.stem}-pre-{previous_stage}-{datetime.now():%Y%m%d-%H%M%S-%f}.sqlite3"
         with sqlite3.connect(path) as source, sqlite3.connect(backup) as target:
             source.backup(target)
@@ -102,10 +103,13 @@ def initialize_database(db_engine=engine):
             if session.get(SiteSetting, "registration_enabled") is None:
                 session.add(SiteSetting(key="registration_enabled", value="true"))
             if backup:
-                session.merge(SiteSetting(key="stage5_backup" if first_upgrade or legacy else "stage7_backup" if stage7_upgrade else "stage9_backup", value=str(backup)))
-            session.merge(SiteSetting(key="schema_version", value="9"))
+                session.merge(SiteSetting(key="stage5_backup" if first_upgrade or legacy else "stage7_backup" if stage7_upgrade else "stage9_backup" if stage9_upgrade else "stage10_backup", value=str(backup)))
+            session.merge(SiteSetting(key="schema_version", value="10"))
             for item in COMMODITIES:
                 session.merge(Commodity(**vars(item)))
+            session.flush()
+            from .quotes import backfill_prices
+            backfill_prices(session)
             for source in SOURCES:
                 if session.get(SourceState, source) is None:
                     session.add(SourceState(source=source))

@@ -188,7 +188,8 @@ def test_sci99_cookie_fetch_parse_and_store_framework(factory):
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         adapter = Sci99Adapter(settings=settings, client=client)
         adapter.interval = 0
-        points = adapter.fetch()
+        assert adapter.test_connection() == "cookie_valid"
+        points = [adapter.parse(ABS_HTML, SOURCES["sci99"]["url"])]
     assert points[0].code == "abs"
     assert points[0].price == Decimal("150")
     # ABS 已切到免费源；旧卓创框架数据不得污染当前免费口径。
@@ -214,8 +215,9 @@ def test_sci99_plain_form_framework():
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         adapter = Sci99Adapter(settings=settings, client=client)
         adapter.interval = 0
-        assert adapter.fetch()[0].code == "abs"
-    assert calls == ["GET", "POST", "GET"]
+        assert adapter.test_connection() == "password_valid"
+        assert adapter.parse(ABS_HTML, SOURCES["sci99"]["url"]).code == "abs"
+    assert calls == ["GET", "POST"]
 
 
 def test_credentials_only_read_root_dotenv(tmp_path, monkeypatch):

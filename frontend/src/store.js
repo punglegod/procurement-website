@@ -8,28 +8,33 @@ const loading = ref(false)
 const error = ref('')
 const refreshedAt = ref(null)
 let request = null
+let activeController
+let sequence = 0
 
-async function refresh() {
-  if (request) return request
+async function refresh({ force = false } = {}) {
+  if (request && !force) return request
+  const id = ++sequence
+  activeController?.abort()
   loading.value = true
   error.value = ''
   request = (async () => {
     const controller = new AbortController()
+    activeController = controller
     const timer = setTimeout(() => controller.abort(), 15000)
     try {
       const [latest, status] = await Promise.all([
         getJson('/api/prices/latest', controller.signal),
         user.value?.role === 'admin' ? getJson('/api/sources/status', controller.signal) : Promise.resolve({ items: [] }),
       ])
+      if (id !== sequence) return
       items.value = latest.items
       sources.value = status.items
       refreshedAt.value = new Date().toISOString()
     } catch (cause) {
-      error.value = cause.name === 'AbortError' ? '请求超时，请检查本地服务后重试。' : cause.message
+      if (id === sequence) error.value = cause.name === 'AbortError' ? '请求超时，请检查本地服务后重试。' : cause.message
     } finally {
       clearTimeout(timer)
-      loading.value = false
-      request = null
+      if (id === sequence) { loading.value = false; request = null }
     }
   })()
   return request

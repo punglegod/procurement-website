@@ -1,0 +1,68 @@
+[
+  {
+    "code": "abs",
+    "url": "https://ochem.sci99.com/product/abs",
+    "navDictId": 12593,
+    "html": "var pageNavDictId = 12593\n\n    var pageNavDictName = 'ABS';\nvar navDictId = 12593;\nvar navCategory = 1;"
+  },
+  {
+    "code": "pc",
+    "url": "https://ochem.sci99.com/product/pc",
+    "navDictId": 12596,
+    "html": "var pageNavDictId = 12596\n\n    var pageNavDictName = 'PC';\nvar navDictId = 12596;\nvar navCategory = 1;"
+  },
+  {
+    "code": "pmma",
+    "url": "https://ochem.sci99.com/product/pmma",
+    "navDictId": 12617,
+    "html": "var pageNavDictId = 12617\n\n    var pageNavDictName = 'PMMA';\nvar navDictId = 12617;\nvar navCategory = 1;"
+  },
+  {
+    "code": "lithium_carbonate",
+    "url": "https://ne.sci99.com/product/lithium_carbonate",
+    "navDictId": 12697,
+    "html": "var pageNavDictId = 12697\n\n    var pageNavDictName = '碳酸锂';\nvar navDictId = 12697;\nvar navCategory = 1;"
+  },
+  {
+    "code": "silicone_rubber",
+    "url": "https://rubber.sci99.com/product/silicone_rubber",
+    "navDictId": 13707,
+    "html": "var pageNavDictId = 13707\n\n    var pageNavDictName = '硅橡胶';\nvar navDictId = 13707;\nvar navCategory = 1;"
+  },
+  {
+    "code": "pe",
+    "url": "https://plast.sci99.com/product/pe",
+    "navDictId": 13722,
+    "html": "var pageNavDictId = 13722\n\n    var pageNavDictName = 'PE';\nvar navDictId = 13722;\nvar navCategory = 1;"
+  },
+  {
+    "code": "pp",
+    "url": "https://plast.sci99.com/product/pp_granules",
+    "navDictId": 13724,
+    "html": "var pageNavDictId = 13724\n\n    var pageNavDictName = 'PP粒';\nvar navDictId = 13724;\nvar navCategory = 1;"
+  },
+  {
+    "code": "bopet",
+    "url": "https://plast.sci99.com/product/bopet",
+    "navDictId": 13738,
+    "html": "var pageNavDictId = 13738\n\n    var pageNavDictName = 'BOPET';\nvar navDictId = 13738;\nvar navCategory = 1;"
+  },
+  {
+    "code": "corrugated_paper",
+    "url": "https://paper.sci99.com/product/corrugated_paper",
+    "navDictId": 12573,
+    "html": "var pageNavDictId = 12573\n\n    var pageNavDictName = '瓦楞纸';\nvar navDictId = 12573;\nvar navCategory = 1;"
+  },
+  {
+    "code": "dmc",
+    "url": "https://nmt.sci99.com/product/silicone_intermediate",
+    "navDictId": 13071,
+    "html": "var pageNavDictId = 13071\n\n    var pageNavDictName = '有机硅中间体(DMC)';\nvar navDictId = 13071;\nvar navCategory = 1;"
+  },
+  {
+    "code": "cardboard_paper",
+    "url": "https://paper.sci99.com/product/cardboard_paper",
+    "navDictId": 12574,
+    "html": "var pageNavDictId = 12574\n\n    var pageNavDictName = '箱板纸';\nvar navDictId = 12574;\nvar navCategory = 1;"
+  }
+]

@@ -54,7 +54,7 @@ onBeforeUnmount(() => { sequence++ })
     <p v-if="state">上次登录或抓取：{{ state.last_result }} <span v-if="state.last_attempt_at">（{{ time(state.last_attempt_at) }}）</span></p>
     <p v-if="state?.auth_message" data-testid="sci99-auth-state">登录态：{{ state.auth_message }}<span v-if="state.verified_at">（验证时间：{{ time(state.verified_at) }}）</span><span v-else-if="state.auth_checked_at">（检查时间：{{ time(state.auth_checked_at) }}）</span></p>
     <p v-if="state?.quote_message" data-testid="sci99-quote-state">报价：{{ state.quote_message }}</p>
-    <p>后台凭据加密保存，优先于服务器配置；只测试登录可用性，不批量抓价。卓创当前保留采集框架，启用不会替换现有免费报价口径；验证码或风控会立即停止。</p>
+    <p>后台凭据加密保存，优先于服务器配置；测试连接只验证登录。启用后仅09:00轮抓取10品种的全部报价，免费源继续保留。每个账号在品种详情自行选择口径；验证码或风控会立即停止。</p>
     <p v-if="error" role="alert" class="notice error-notice">{{ error }}<button v-if="!state" class="text-button" @click="load">重新读取</button></p>
     <p v-if="notice" role="status" class="notice">{{ notice }}</p>
   </section>

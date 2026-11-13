@@ -12,7 +12,7 @@ from sqlalchemy import select
 from . import config
 from .adapters.common import now
 from .adapters.sci99 import STATE_MESSAGES, Sci99Stopped
-from .models import SiteSetting, SourceState
+from .models import SiteSetting, SourceState, QuoteImport
 from .security import reserve_limits
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ class SourceSettings:
                 settings, enabled, backend = self.resolve(session)
                 configured = config.sci99_configured(settings)
                 status = "enabled" if configured and enabled else "configured_disabled" if configured else "pending_credentials"
-                message = "已启用（仅09:00轮；当前保留采集框架，不替换免费口径）" if status == "enabled" else "已配置未启用" if configured else "未配置（待配置凭据）"
+                message = "已启用（仅09:00轮全量抓取；每账号自选口径）" if status == "enabled" else "已配置未启用" if configured else "未配置（待配置凭据）"
                 mode = "cookie" if settings.get("SCI99_COOKIE") else "password" if configured else "none"
                 if not configured:
                     auth_status, checked_at = "pending_credentials", None
@@ -136,6 +136,13 @@ class SourceSettings:
                 mode, auth_status, checked_at = "none", "pending_credentials", None
             auth_message = STATE_MESSAGES[auth_status]
             message += "；" + auth_message
+            latest_import = session.scalar(select(QuoteImport).where(QuoteImport.source == "sci99").order_by(QuoteImport.id.desc()).limit(1))
+            quote_status, quote_message = "quote_pending", STATE_MESSAGES["quote_pending"]
+            if latest_import:
+                imports = list(session.scalars(select(QuoteImport).where(QuoteImport.source == "sci99", QuoteImport.fetched_at == latest_import.fetched_at).order_by(QuoteImport.id)))
+                passed = sum(row.status == "ok" for row in imports)
+                quote_status = "ok" if passed == len(imports) == 10 else "partial" if passed else "failed"
+                quote_message = f"最近一次全量采集：成功{passed}/10品种；" + "；".join(f"{row.code} {row.count}条（{row.status}）" for row in imports)
             return {"enabled": enabled, "configured": configured, "backend_configured": backend,
                     "key_ready": cipher() is not None, "status": status, "message": message, **masks,
                     "last_result": state.message if state else "尚未测试或抓取",
@@ -143,7 +150,7 @@ class SourceSettings:
                     "auth_mode": mode, "auth_status": auth_status, "auth_message": auth_message,
                     "auth_checked_at": checked_at,
                     "verified_at": checked_at if auth_status in {"cookie_valid", "password_valid"} else None,
-                    "quote_status": "quote_pending", "quote_message": STATE_MESSAGES["quote_pending"],
+                    "quote_status": quote_status, "quote_message": quote_message,
                     "last_attempt_at": state.last_attempt_at.isoformat() + "+08:00" if state and state.last_attempt_at else None}
 
     def save(self, data):

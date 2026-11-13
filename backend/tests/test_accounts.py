@@ -39,8 +39,8 @@ def accounts(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "SessionLocal", factory)
     monkeypatch.setattr(main, "alerts", alerts)
     monkeypatch.setattr(main, "initialize_database", lambda: None)
-    monkeypatch.setattr(main, "latest_prices", lambda: price_service.latest_prices(factory))
-    monkeypatch.setattr(main, "price_history", lambda code, days: price_service.price_history(code, days, factory))
+    monkeypatch.setattr(main, "latest_prices", lambda *args, **kwargs: price_service.latest_prices(factory, **kwargs))
+    monkeypatch.setattr(main, "price_history", lambda code, days, *args, **kwargs: price_service.price_history(code, days, factory, **kwargs))
     monkeypatch.setattr(main, "service", price_service.FetchService(factory))
     with TestClient(main.app) as admin, TestClient(main.app) as a, TestClient(main.app) as b:
         assert admin.post("/api/auth/login", json={"username": "test_admin", "password": PASSWORD}).status_code == 200

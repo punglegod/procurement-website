@@ -18,6 +18,7 @@ export async function mutateJson(path, method = 'POST', body) {
 export const pushStatus = value => ({ sent: '发送成功', failed: '发送失败', unknown: '送达未知', sending: '处理中 / 中断后送达未知', pending_configuration: '待配置', pending_verification: '待验证邮箱', deduplicated: '今日已尝试', skipped: '未触发 / 等待数据' }[value] || value)
 
 export const number = (value) => value == null ? '—' : new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(value)
+export const quotePrice = point => !point ? '—' : point.price_text || (point.low != null && point.high != null ? `${number(point.low)}-${number(point.high)}` : number(point.price))
 export const signed = (value, suffix = '') => value == null ? '—' : `${value > 0 ? '+' : value < 0 ? '−' : ''}${number(Math.abs(value))}${suffix}`
 export const direction = (value) => value > 0 ? 'up' : value < 0 ? 'down' : 'neutral'
 export const pushKind = log => ({ test: '通道测试', verification: '邮箱验证', digest: '日报', fetch_progress: '抓取进度' }[log.kind] || `规则 #${log.rule_id} · ${log.code}`)

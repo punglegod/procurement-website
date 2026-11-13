@@ -109,9 +109,11 @@ def test_quote_dynamic_shell_keeps_cookie_separate_and_does_not_guess():
         return httpx.Response(200, text='<div id="app"></div><script>loadPriceApi()</script><article>ABS价格区间100-200</article>')
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         adapter = Sci99Adapter(settings={"SCI99_COOKIE": "test=isolated"}, client=client); adapter.interval = 0
-        with pytest.raises(Sci99Stopped) as stopped: adapter.fetch()
+        assert adapter.fetch() == []
         assert adapter.auth_status == "cookie_valid"
-    assert stopped.value.status == "quote_pending" and len(calls) == 2
+        assert len(adapter.quote_results) == 10 and all(r["status"] == "failed" for r in adapter.quote_results)
+    # v10不再预设ABS目标均价；每品种独立核定页面，未知壳页不猜接口或价格。
+    assert len(calls) == 11 and all("priceCenter" not in url for url in calls)
 
 
 def test_cookie_network_failure_is_unconfirmed_with_bounded_get_retry():
@@ -143,7 +145,7 @@ def test_admin_states_timestamp_source_visibility_and_redaction(accounts, monkey
     assert result["status"] == state["auth_status"] == source["auth_status"] == status
     assert bool(state["verified_at"]) == (status == "cookie_valid")
     assert state["auth_checked_at"] and state["quote_status"] == source["quote_status"] == "quote_pending"
-    assert not state["enabled"] and "报价页动态加载待核定" in source["message"]
+    assert not state["enabled"] and "等待09:00轮全量采集" in source["message"]
     assert hidden not in json.dumps([result, state, source]) + caplog.text
     for path in ("/api/admin/sources/sci99", "/api/sources/status"):
         assert ordinary.get(path).status_code == 403

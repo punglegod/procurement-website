@@ -2,7 +2,7 @@ import re
 from contextlib import nullcontext
 from decimal import Decimal, InvalidOperation
 from http.cookies import SimpleCookie
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin
 
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
 
@@ -21,7 +21,7 @@ STATE_MESSAGES = {
     "cookie_unconfirmed": "Cookie 未确认，响应结构、跳转或网络状态无法确认；已停止",
     "login_unconfirmed": "账密登录结果未确认，已停止；请人工检查官网",
     "access_blocked": "触发验证码或风控已停手，请人工检查官网",
-    "quote_pending": "报价页动态加载待核定，未取得可核验的华东市场 ABS 0215A 现货均价",
+    "quote_pending": "尚无完整报价，等待09:00轮全量采集（登录有效不代表报价完整）",
 }
 
 
@@ -151,18 +151,15 @@ class Sci99Adapter(HttpSource):
         except SourceError:
             raise Sci99Stopped("cookie_unconfirmed") from None
 
-    def fetch(self) -> list[PricePoint]:
+    def fetch(self):
         if not sci99_configured(self.settings):
             return []
-        url = validate_url(self.settings.get("SCI99_ABS_URL") or SOURCES["sci99"]["url"], ("sci99.com",))
-        if urlsplit(url).query or urlsplit(url).fragment:
-            raise SourceError("ABS 页面请使用不含查询参数的固定 URL，避免将登录令牌写入数据库")
         with nullcontext(self.client) if self.client else self.open_client() as client:
             self.authenticate(client)
             if self.settings.get("SCI99_COOKIE"):
                 self.verify_cookie(client)
-            response = self.request(client, "GET", url, sci99=True)
-            return [self.parse(response.text, url)]
+            from .sci99_quotes import fetch_all
+            return fetch_all(self, client)
 
     def login(self, client):
         # 仅支持官网直接提供的普通表单；不模拟 JS 加密、不处理任何验证码。

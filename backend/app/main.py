@@ -16,7 +16,8 @@ from .models import PushSetting
 
 from .config import COMMODITIES, COMMODITY_MAP, FETCH_SLOTS, ROOT, TIMEZONE, read_public_origin
 from .db import initialize_database
-from .service import FetchBusy, FetchService, latest_prices, price_history
+from .service import FetchBusy, FetchService, latest_prices, price_history, quote_options
+from .quotes import choose
 from .alerts import AlertService, RuleInput, channel_status
 from .auth import router as auth_router, current_user, admin_user, resolve_user
 from . import auth
@@ -100,7 +101,7 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="采购行情网站", version="0.9.0", lifespan=lifespan)
+app = FastAPI(title="采购行情网站", version="0.10.0", lifespan=lifespan)
 app.include_router(auth_router)
 
 
@@ -144,20 +145,45 @@ def health():
 
 
 @app.get("/api/commodities")
-def commodities():
-    return {"items": [vars(item) for item in COMMODITIES]}
+def commodities(user=Depends(current_user)):
+    prices = {item["code"]: item for item in latest_prices(service.session_factory, user_id=user.id)}
+    return {"items": [vars(item) | {key: prices[item.code][key] for key in ("source", "unit", "quote_basis")} for item in COMMODITIES]}
 
 
 @app.get("/api/prices/latest")
-def latest():
-    return {"items": latest_prices()}
+def latest(user=Depends(current_user)):
+    return {"items": latest_prices(service.session_factory, user_id=user.id)}
 
 
 @app.get("/api/prices/history")
-def history(code: str, days: int = Query(30, ge=1, le=3650)):
+def history(code: str, days: int = Query(30, ge=1, le=3650), user=Depends(current_user)):
     if code not in COMMODITY_MAP:
         raise HTTPException(status_code=404, detail="未知品种 code")
-    return price_history(code, days)
+    return price_history(code, days, service.session_factory, user_id=user.id)
+
+
+@app.get("/api/quotes")
+def quotes(code: str, user=Depends(current_user)):
+    if code not in COMMODITY_MAP:
+        raise HTTPException(404, "未知品种 code")
+    return quote_options(code, user.id, service.session_factory)
+
+
+class SelectionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entry_id: int = Field(gt=0)
+
+
+@app.put("/api/me/quote-selections/{code}")
+def save_quote_selection(code: str, data: SelectionInput, user=Depends(current_user)):
+    if code not in COMMODITY_MAP:
+        raise HTTPException(404, "未知品种 code")
+    with service.session_factory() as session:
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+        available_user(session, user.id)
+        choose(session, user.id, code, data.entry_id)
+        session.commit()
+    return quote_options(code, user.id, service.session_factory)
 
 
 @app.post("/api/fetch/run")

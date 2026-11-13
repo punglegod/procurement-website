@@ -38,11 +38,11 @@ onMounted(() => action(async () => {}))
       <button class="button" type="submit" :disabled="busy">{{ busy ? '处理中…' : '保存规则' }}</button>
       <button v-if="editing" class="text-button" type="button" :disabled="busy" @click="reset">取消编辑</button>
     </form>
-    <p class="alert-help">日涨跌幅取绝对值，含上涨和下跌，比较上一真实报价日；按未四舍五入的数值判断。每条规则独立触发，同规则同品种每天最多尝试发送一次（北京时间）。</p>
+    <p class="alert-help">按本账号在品种详情选定的口径评估，改选后阈值保持原数值，请核对单位。日涨跌幅取绝对值，含上涨和下跌，比较上一真实报价日；按未四舍五入的数值判断。每条规则独立触发，同规则同品种每天最多尝试发送一次（北京时间）。</p>
   </section>
   <section class="panel">
     <div class="panel-toolbar"><h2>已保存规则 <small>{{ rules.length }} 条</small></h2><button class="button" :disabled="busy" @click="check">立即检查规则</button></div>
-    <div class="alert-table-wrap"><table class="alert-table"><thead><tr><th>品种 / 固定口径</th><th>条件</th><th>状态 / 当前检查</th><th>操作</th></tr></thead><tbody>
+    <div class="alert-table-wrap"><table class="alert-table"><thead><tr><th>品种 / 当前口径</th><th>条件</th><th>状态 / 当前检查</th><th>操作</th></tr></thead><tbody>
       <tr v-for="rule in rules" :key="rule.id"><td><strong>{{ rule.name }}</strong><small>#{{ rule.id }} · {{ rule.quote_basis }}</small><small>{{ rule.unit }}</small></td><td>{{ kinds[rule.kind] }} {{ number(rule.threshold) }}{{ rule.kind === 'daily_change' ? '%' : ' ' + rule.unit }}</td><td>{{ rule.enabled ? '已启用' : '已暂停' }}<small>{{ rule.data_message }}</small></td><td class="alert-actions"><button class="text-button" :disabled="busy" @click="edit(rule)">编辑</button><button class="text-button" :disabled="busy" @click="toggle(rule)">{{ rule.enabled ? '暂停' : '启用' }}</button><button class="text-button" :disabled="busy" @click="remove(rule)">删除</button></td></tr>
     </tbody></table></div>
     <p v-if="!rules.length" class="alert-empty">{{ busy ? '正在读取规则…' : '暂无规则，从上方添加第一条价格提醒。' }}</p>

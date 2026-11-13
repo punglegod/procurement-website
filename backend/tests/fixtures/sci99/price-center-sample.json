@@ -1,0 +1,446 @@
+{
+    "code": 200,
+    "message": null,
+    "data": {
+        "tableHeadArray": [
+            {
+                "field": "MarketSampleName",
+                "isDual": false,
+                "title": "市场名称"
+            },
+            {
+                "field": "FactorySampleName",
+                "isDual": false,
+                "title": "生产企业"
+            },
+            {
+                "field": "Model",
+                "isDual": false,
+                "title": "规格型号"
+            },
+            {
+                "field": "Data",
+                "isDual": true,
+                "title": "2026-11-13"
+            },
+            {
+                "field": "Change",
+                "isDual": false,
+                "title": "涨跌"
+            }
+        ],
+        "tableDataArray": [
+            {
+                "FactorySampleName": "台湾奇美",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=71307&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "中国香港",
+                "Model": "PA-757",
+                "Data": "<span style='color: #468E00;'>1710</span>-<span style='color: #468E00;'>1730</span>",
+                "Change": "<span style='color: #468E00;'>-10</span>/<span style='color: #468E00;'>-10</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=71307&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "单位：美元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "台湾台化",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=71306&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "中国香港",
+                "Model": "AG15A1",
+                "Data": "<span style='color: #468E00;'>1685</span>-<span style='color: #468E00;'>1700</span>",
+                "Change": "<span style='color: #468E00;'>-10</span>/<span style='color: #468E00;'>-20</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=71306&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "单位：美元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=107833&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "华东",
+                "Model": "普通注塑级",
+                "Data": "<span style='color: #DA0000;'>11650</span>-<span style='color: #DA0000;'>11700</span>",
+                "Change": "<span style='color: #DA0000;'>150</span>/<span style='color: #DA0000;'>100</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=107833&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "大庆石化",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5429&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "750A",
+                "Data": "-",
+                "Change": "-/-",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5429&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "吉林石化",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6755&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "0215A",
+                "Data": "<span style='color: #DA0000;'>11650</span>-<span style='color: #DA0000;'>11700</span>",
+                "Change": "<span style='color: #DA0000;'>150</span>/<span style='color: #DA0000;'>100</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6755&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "LG甬兴",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=73688&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "FR-500",
+                "Data": "23000-23000",
+                "Change": "0/0",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=73688&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "LG甬兴",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5480&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "HI-121H",
+                "Data": "<span style='color: #DA0000;'>12350</span>-12400",
+                "Change": "<span style='color: #DA0000;'>50</span>/0",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5480&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "宁波台化",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6670&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "AG15A1",
+                "Data": "<span style='color: #468E00;'>13100</span>-<span style='color: #468E00;'>13100</span>",
+                "Change": "<span style='color: #468E00;'>-50</span>/<span style='color: #468E00;'>-50</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6670&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "荣盛石化",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=200519&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "ZA0211",
+                "Data": "<span style='color: #DA0000;'>12100</span>-12100",
+                "Change": "<span style='color: #DA0000;'>100</span>/0",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=200519&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "山东裕龙石化",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=200520&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "A2020",
+                "Data": "<span style='color: #DA0000;'>11950</span>-<span style='color: #DA0000;'>11950</span>",
+                "Change": "<span style='color: #DA0000;'>250</span>/<span style='color: #DA0000;'>150</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=200520&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "上海高桥",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5705&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "275",
+                "Data": "11300-11300",
+                "Change": "0/0",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5705&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "上海高桥",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6773&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "8391",
+                "Data": "11600-11600",
+                "Change": "0/0",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6773&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "天津大沽",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=41722&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "DG417",
+                "Data": "<span style='color: #DA0000;'>11650</span>-<span style='color: #DA0000;'>11700</span>",
+                "Change": "<span style='color: #DA0000;'>50</span>/<span style='color: #DA0000;'>100</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=41722&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "台湾奇美",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5361&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "PA-757",
+                "Data": "<span style='color: #DA0000;'>13400</span>-<span style='color: #DA0000;'>13400</span>",
+                "Change": "<span style='color: #DA0000;'>50</span>/<span style='color: #DA0000;'>50</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5361&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "镇江奇美",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6402&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "D-180",
+                "Data": "13400-13500",
+                "Change": "0/0",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6402&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "镇江奇美",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6186&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "余姚",
+                "Model": "PA-757K",
+                "Data": "<span style='color: #468E00;'>12700</span>-<span style='color: #468E00;'>12800</span>",
+                "Change": "<span style='color: #468E00;'>-100</span>/<span style='color: #468E00;'>-100</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6186&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=107835&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "华南",
+                "Model": "普通注塑级",
+                "Data": "<span style='color: #DA0000;'>11650</span>-<span style='color: #DA0000;'>11800</span>",
+                "Change": "<span style='color: #DA0000;'>50</span>/<span style='color: #DA0000;'>100</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=107835&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "吉化揭阳",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=37658&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "华南",
+                "Model": "0215A",
+                "Data": "<span style='color: #DA0000;'>11650</span>-<span style='color: #DA0000;'>11800</span>",
+                "Change": "<span style='color: #DA0000;'>50</span>/<span style='color: #DA0000;'>100</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=37658&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "漳州奇美",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=37659&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "华南",
+                "Model": "PA-757K",
+                "Data": "12500-<span style='color: #DA0000;'>12650</span>",
+                "Change": "0/<span style='color: #DA0000;'>50</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=37659&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "价格条件：含税",
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "宁波台化",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=41723&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "东莞",
+                "Model": "AG15E1",
+                "Data": "<span style='color: #DA0000;'>11850</span>-<span style='color: #DA0000;'>11850</span>",
+                "Change": "<span style='color: #DA0000;'>50</span>/<span style='color: #DA0000;'>50</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=41723&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "台湾奇美",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6197&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "东莞",
+                "Model": "PA-757",
+                "Data": "<span style='color: #468E00;'>11750</span>-<span style='color: #468E00;'>11750</span>",
+                "Change": "<span style='color: #468E00;'>-30</span>/<span style='color: #468E00;'>-30</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6197&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "台湾台化",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6270&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "东莞",
+                "Model": "AG15A1",
+                "Data": "<span style='color: #DA0000;'>12260</span>-<span style='color: #DA0000;'>12260</span>",
+                "Change": "<span style='color: #DA0000;'>260</span>/<span style='color: #DA0000;'>260</span>",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6270&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "LG甬兴",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5749&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "顺德",
+                "Model": "HI-121H",
+                "Data": "11200-11350",
+                "Change": "0/0",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=5749&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            },
+            {
+                "FactorySampleName": "漳州奇美",
+                "pcUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6629&datatypeid=37&ppid=12593&cycletype=day",
+                "productId": 12593,
+                "MarketSampleName": "顺德",
+                "Model": "PA-757K",
+                "Data": "<span style='color: #DA0000;'>11370</span>-11500",
+                "Change": "<span style='color: #DA0000;'>20</span>/0",
+                "mobileUrl": "https://prices.sci99.com/cn/product_price.aspx?diid=6629&datatypeid=37&ppid=12593&cycletype=day",
+                "loginStatus": 1,
+                "tips": [
+                    "单位：元/吨",
+                    "数据状态：盘中"
+                ],
+                "powerType": 1
+            }
+        ],
+        "pcUrl": "https://prices.sci99.com/cn/product.aspx?ppid=12593&ppname=ABS&pricetypeid=1",
+        "mobileUrl": "https://prices.sci99.com/cn/product.aspx?ppid=12593&ppname=ABS&pricetypeid=1",
+        "pcPageUrl": null,
+        "mobilePageUrl": null,
+        "filterItems": null,
+        "navCategory": null,
+        "pageIndex": null,
+        "pageSize": null,
+        "totalCount": null,
+        "totalPage": null
+    }
+}

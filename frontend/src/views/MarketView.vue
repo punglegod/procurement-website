@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useMarket } from '../store'
-import { direction, number, signed, sourceUrl, statusText } from '../api'
+import { direction, quotePrice, signed, sourceUrl, statusText } from '../api'
 
 const { items, loading, quoted, stale, refresh } = useMarket()
 const query = ref('')
@@ -27,14 +27,14 @@ const filtered = computed(() => items.value.filter(item =>
     <div class="table-tools"><div class="filter-tabs" aria-label="行情筛选"><button :class="{ selected: filter === 'all' }" :aria-pressed="filter === 'all'" @click="filter = 'all'">全部品种</button><button :class="{ selected: filter === 'quoted' }" :aria-pressed="filter === 'quoted'" @click="filter = 'quoted'">已有报价</button><button :class="{ selected: filter === 'pending' }" :aria-pressed="filter === 'pending'" @click="filter = 'pending'">暂无报价</button></div><span class="table-legend">涨跌对比上一报价日 · 同一口径</span></div>
     <div class="table-scroll" tabindex="0" aria-label="品种报价表，可横向滚动">
       <table class="price-table">
-        <thead><tr><th scope="col">品种</th><th scope="col" class="numeric">最新价<small>元/吨</small></th><th scope="col" class="numeric">涨跌额</th><th scope="col" class="numeric">涨跌幅</th><th scope="col">报价口径</th><th scope="col">报价日期</th><th scope="col">来源</th><th scope="col"><span class="sr-only">详情</span></th></tr></thead>
+        <thead><tr><th scope="col">品种</th><th scope="col" class="numeric">最新价 / 区间</th><th scope="col" class="numeric">涨跌额</th><th scope="col" class="numeric">涨跌幅</th><th scope="col">报价口径</th><th scope="col">报价日期</th><th scope="col">来源</th><th scope="col"><span class="sr-only">详情</span></th></tr></thead>
         <tbody>
           <tr v-for="item in filtered" :key="item.code" :class="{ 'stale-row': item.price_point && item.stale }">
             <th scope="row"><RouterLink :to="`/commodity/${item.code}`" class="commodity-link">{{ item.name }}</RouterLink><div class="row-meta"><span class="code-label">{{ item.code.toUpperCase() }}</span><span class="status-badge" :class="item.price_point ? (item.stale ? 'badge-amber' : 'badge-green') : 'badge-muted'">{{ statusText(item) }}</span></div></th>
-            <td class="numeric price-cell">{{ number(item.price_point?.price) }}<small v-if="item.price_point">{{ item.price_point.unit }}</small></td>
+            <td class="numeric price-cell">{{ quotePrice(item.price_point) }}<small v-if="item.price_point">{{ item.price_point.unit }}</small></td>
             <td class="numeric" :class="direction(item.change_amount)" :title="item.previous_quote_date ? `对比 ${item.previous_quote_date}` : '暂无上一报价日数据'">{{ signed(item.change_amount) }}</td>
             <td class="numeric" :class="direction(item.change_percent)">{{ signed(item.change_percent, '%') }}</td>
-            <td class="basis-cell">{{ item.price_point?.quote_basis || item.quote_basis }}<small v-if="!item.price_point">{{ item.message }}</small></td>
+            <td class="basis-cell">{{ item.price_point?.quote_basis || item.quote_basis }}<small v-if="!item.price_point">{{ item.message }}</small><small v-if="item.selection_missing" class="text-amber">所选口径本轮未更新</small></td>
             <td class="date-cell">{{ item.price_point?.quote_date || '—' }}<small v-if="item.price_point && item.stale" class="text-amber">过期 · 非今日报价</small></td>
             <td class="source-cell"><a v-if="item.price_point && sourceUrl(item.price_point.source_url)" :href="sourceUrl(item.price_point.source_url)" target="_blank" rel="noopener noreferrer">{{ item.price_point.source_name }} <span aria-hidden="true">↗</span></a><span v-else class="muted">{{ item.enabled === false ? '免费源待接入' : '暂无入库报价' }}</span><small v-if="item.price_point && ['failed', 'blocked', 'interrupted'].includes(item.data_status)" class="text-amber" :title="item.message">来源异常 · 保留已有报价</small></td>
             <td><RouterLink class="detail-link" :to="`/commodity/${item.code}`" :aria-label="`查看${item.name}走势`">↗</RouterLink></td>
@@ -45,5 +45,5 @@ const filtered = computed(() => items.value.filter(item =>
     </div>
     <div class="table-footer"><span>显示 {{ filtered.length }} / {{ items.length }} 个品种</span><span>“—” 表示暂无报价或缺少上一报价日数据</span></div>
   </section>
-  <div class="notice info-notice"><span class="info-icon" aria-hidden="true">i</span><p>11 个品种均使用免费公开现货源。各品种规格与计价方式见报价口径；请留意报价日期。点击品种查看历史走势，点击来源查看原始报价。</p></div>
+  <div class="notice info-notice"><span class="info-icon" aria-hidden="true">i</span><p>各品种按本账号保存的口径显示，首次有数据时随机固定一个。点击品种切换口径、查看全部报价与走势。区间价保留原文，涨跌与走势使用中值；请留意来源、单位和报价日期。</p></div>
 </template>

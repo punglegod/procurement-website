@@ -1,0 +1,4 @@
+filterItems: []
+navCategory: 1
+navDictId: 12593
+priceType: "市场价格"

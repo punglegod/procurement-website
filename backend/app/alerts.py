@@ -17,6 +17,7 @@ from .db import SessionLocal
 from .models import AlertRule, PricePoint, PushLog, PushSetting, User
 from .security import reserve_email_limits, reserve_limits
 from .service import timestamp
+from .quotes import selected_entry, observations, label
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +141,15 @@ for _name in ("httpx", "httpcore.connection", "httpcore.http11", "httpcore.proxy
 
 
 def matching_points(session, rule, day):
+    entry = selected_entry(session, rule.user_id, rule.code)
+    if entry:
+        rule._selected = True
+        rule._selection_missing = entry.missing
+        rule.source, rule.quote_basis = entry.source, label(entry)
+        rows = observations(session, entry, day=day)
+        if rows:
+            rule.unit = rows[-1].unit
+        return list(reversed(rows[-2:]))
     return session.scalars(select(PricePoint).where(
         PricePoint.code == rule.code, PricePoint.source == rule.source,
         PricePoint.quote_basis == rule.quote_basis, PricePoint.unit == rule.unit,
@@ -149,8 +159,12 @@ def matching_points(session, rule, day):
 
 def evaluate(rule, points, day):
     item = COMMODITY_MAP[rule.code]
-    if (rule.source, rule.quote_basis, rule.unit) != (item.source, item.quote_basis, item.unit):
+    if not getattr(rule, "_selected", False) and (rule.source, rule.quote_basis, rule.unit) != (item.source, item.quote_basis, item.unit):
         return False, "报价口径配置已变更，请编辑并保存规则重新确认"
+    if getattr(rule, "_selection_missing", False):
+        return False, "所选口径本轮未更新，跳过提醒"
+    if rule.unit == "待核定":
+        return False, "所选口径单位待核定，暂不发送提醒"
     if not points:
         return False, "暂无同口径报价，等待数据"
     current = points[0]
@@ -164,7 +178,7 @@ def evaluate(rule, points, day):
         reason = f"日涨跌幅 {change:+.4f}%（绝对值 ≥ {rule.threshold}%）"
     else:
         hit = current.price >= rule.threshold if rule.kind == "price_gte" else current.price <= rule.threshold
-        reason = f"价格 {current.price} {rule.unit}（{'≥' if rule.kind == 'price_gte' else '≤'} {rule.threshold}）"
+        reason = f"价格{'区间中值' if getattr(current, 'low', None) is not None else ''} {current.price} {rule.unit}（{'≥' if rule.kind == 'price_gte' else '≤'} {rule.threshold}）"
     return bool(hit), reason
 
 
@@ -202,18 +216,20 @@ class AlertService:
 
     def rules(self, *, user_id):
         with self.session_factory() as session:
+            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
             day = self.clock().date()
             rows = []
             for rule in session.scalars(select(AlertRule).where(AlertRule.user_id == user_id).order_by(AlertRule.id)):
                 hit, reason = evaluate(rule, matching_points(session, rule, day), day)
                 rows.append(rule_dict(rule) | {"matched": hit, "data_message": reason})
+            session.commit()
             return {"items": rows, "channel": self.status(user_id)}
 
     def save(self, data, rule_id=None, *, user_id):
         with self.session_factory() as session:
+            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
             if rule_id is None:
                 # 数量与创建额度在同一短写事务检查，避免并发绕过上限。
-                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
                 count = session.scalar(select(func.count()).select_from(AlertRule).where(AlertRule.user_id == user_id))
                 if count >= 20:
                     raise HTTPException(429, "每个账号最多保留 20 条提醒规则")
@@ -225,6 +241,11 @@ class AlertService:
                 setattr(rule, key, value)
             item = COMMODITY_MAP[data.code]
             rule.source, rule.quote_basis, rule.unit = item.source, item.quote_basis, item.unit
+            entry = selected_entry(session, user_id, data.code)
+            if entry:
+                points = observations(session, entry)
+                rule.source, rule.quote_basis = entry.source, label(entry)
+                rule.unit = points[-1].unit if points else item.unit
             rule.updated_at = self.clock().replace(tzinfo=None)
             session.add(rule)
             session.commit()
@@ -288,9 +309,11 @@ class AlertService:
                 if not hit:
                     return {"status": "skipped", "detail": reason}
                 point = points[0]
+                display = getattr(point, "price_text", None) or str(point.price)
+                source_name = entry.source_name if (entry := selected_entry(session, user_id, rule.code, sync=False)) else point.source_name
                 text = (f"采购行情 · 现货提醒 #{rule.id}\n{COMMODITY_MAP[rule.code].name}\n{reason}\n"
-                        f"现价：{point.price} {rule.unit}\n报价日期：{point.quote_date}\n口径：{rule.quote_basis}\n"
-                        f"来源：{point.source_name}\n{point.source_url}")
+                        f"现价：{display} {rule.unit}\n报价日期：{point.quote_date}\n口径：{rule.quote_basis}\n"
+                        f"来源：{source_name}\n{point.source_url}")
             # 等写锁、读配置等耗时不能让旧日评估在新日领取额度。
             if clock().date() != at.date():
                 return {"status": "skipped", "detail": "检查已跨北京时间自然日，停止旧轮；下轮重新检查"}
@@ -362,10 +385,12 @@ class AlertService:
                 break
             # 初筛仅用于返回跳过原因；短会话在发送前结束，最终条件由 deliver 再验。
             with self.session_factory() as session:
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
                 rule = session.get(AlertRule, rule_id)
                 if rule is None or not rule.enabled:
                     continue
                 hit, reason = evaluate(rule, matching_points(session, rule, day), day)
+                session.commit()
             if not hit:
                 results.append({"rule_id": rule_id, "user_id": owner_id, "status": "skipped", "detail": reason})
                 continue

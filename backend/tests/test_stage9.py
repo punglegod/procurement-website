@@ -352,7 +352,7 @@ def test_stage8_upgrade_backup_preserves_verification_and_is_idempotent(accounts
         assert "daily_digest_enabled" not in {row[1] for row in connection.execute("PRAGMA table_info(push_settings)")}
     with sqlite3.connect(path) as connection:
         assert connection.execute("PRAGMA integrity_check").fetchone()[0]=="ok"
-        assert connection.execute("SELECT value FROM site_settings WHERE key='schema_version'").fetchone()[0]=="9"
+        assert connection.execute("SELECT value FROM site_settings WHERE key='schema_version'").fetchone()[0]=="10"
         assert connection.execute("SELECT email_verified_at FROM push_settings").fetchone()[0] is not None
         assert connection.execute("SELECT daily_digest_enabled FROM push_settings").fetchone()[0] is None
     assert initialize_database(engine) is None

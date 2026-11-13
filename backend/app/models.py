@@ -182,3 +182,67 @@ class NotificationClaim(Base):
     key: Mapped[str] = mapped_column(String(180), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     log_id: Mapped[int]
+
+
+class QuoteEntry(Base):
+    __tablename__ = "quote_entries"
+    __table_args__ = (UniqueConstraint("code", "product_name", "specification", "market", "price_type", name="uq_quote_identity"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(ForeignKey("commodities.code"), index=True)
+    product_name: Mapped[str] = mapped_column(String(200))
+    specification: Mapped[str] = mapped_column(String(300), default="")
+    market: Mapped[str] = mapped_column(String(200), default="")
+    price_type: Mapped[str] = mapped_column(String(100))
+    source: Mapped[str] = mapped_column(String(40), index=True)
+    source_name: Mapped[str] = mapped_column(String(100))
+    missing: Mapped[bool] = mapped_column(default=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime)
+    last_quote_date: Mapped[date | None] = mapped_column(Date)
+    last_price_text: Mapped[str] = mapped_column(String(100), default="")
+    last_unit: Mapped[str] = mapped_column(String(30), default="元/吨")
+    last_change_text: Mapped[str] = mapped_column(String(100), default="")
+
+
+class QuoteObservation(Base):
+    __tablename__ = "quote_observations"
+    __table_args__ = (UniqueConstraint("entry_id", "quote_date", name="uq_quote_entry_day"),
+                      CheckConstraint("price > 0"), CheckConstraint("low IS NULL OR (low > 0 AND high >= low)"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("quote_entries.id"), index=True)
+    price: Mapped[Decimal | None] = mapped_column(Numeric(20, 6))
+    low: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
+    high: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
+    price_text: Mapped[str] = mapped_column(String(100))
+    change_text: Mapped[str] = mapped_column(String(100), default="")
+    quote_date: Mapped[date] = mapped_column(Date, index=True)
+    unit: Mapped[str] = mapped_column(String(30))
+    source_url: Mapped[str] = mapped_column(String(1000))
+    fetched_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class UserQuoteSelection(Base):
+    __tablename__ = "user_quote_selections"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    code: Mapped[str] = mapped_column(ForeignKey("commodities.code"), primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("quote_entries.id"))
+    selected_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class QuoteImport(Base):
+    __tablename__ = "quote_imports"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    source: Mapped[str] = mapped_column(String(40))
+    count: Mapped[int]
+    status: Mapped[str] = mapped_column(String(30))
+    message: Mapped[str] = mapped_column(String(300))
+    fetched_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class UserDailyDigest(Base):
+    __tablename__ = "user_daily_digests"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    send_day: Mapped[date] = mapped_column(Date, primary_key=True)
+    title: Mapped[str] = mapped_column(String(100))
+    message: Mapped[str] = mapped_column(Text)
+    html: Mapped[str] = mapped_column(Text)

@@ -87,6 +87,13 @@ def seed(factory, sender=None, settings=None):
         session.add_all([point("100", DAY-timedelta(days=3)), point("105"),
                          point("999", DAY-timedelta(days=1), quote_basis="其他口径不得对比")])
         session.commit()
+        # v10默认口径随机；日额度回归显式选择原测试口径，其他条目继续隔离存在。
+        from backend.app.quotes import backfill_prices, choose
+        from backend.app.models import QuoteEntry
+        backfill_prices(session)
+        entry=session.scalar(select(QuoteEntry).where(QuoteEntry.specification==COMMODITY_MAP["alu_a00"].quote_basis))
+        choose(session,1,"alu_a00",entry.id)
+        session.commit()
     return service, saved
 
 

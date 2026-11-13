@@ -1277,3 +1277,8 @@ main {
   .toolbar-actions .search-field { flex: 1; min-width: 160px; }
   .page-title { font-size: 22px; }
 }
+.quote-options { margin-bottom: 20px; padding: 20px; }
+.quote-options select { max-width: min(720px, 100%); }
+.quote-options h2 { margin: 12px 0; }
+.quote-options .selected-quote-row { background: #e8f3ed; }
+.quote-options td small { display: block; font-size: 13px; margin-top: 5px; }
