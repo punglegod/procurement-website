@@ -18,3 +18,7 @@ backend/scripts/audit_secrets_review_shapes.json
 /STAGE8_REPORT.md
 /backend/scripts/stage8_*.txt
 /backend/scripts/stage8_*.json
+/STAGE9_REPORT.md
+/backend/scripts/stage9_*.txt
+/backend/scripts/stage9_*.json
+/backend/scripts/audit_secrets_*.json

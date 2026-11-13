@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Numeric, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -120,12 +120,14 @@ class PushSetting(Base):
     verification_salt: Mapped[str | None] = mapped_column(String(64))
     verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime)
     verification_attempts: Mapped[int] = mapped_column(default=0, server_default="0")
+    # NULL 使用角色默认值：管理员开、普通账号关，不影响既有邮箱验证。
+    daily_digest_enabled: Mapped[bool | None]
 
 
 class SiteSetting(Base):
     __tablename__ = "site_settings"
     key: Mapped[str] = mapped_column(String(50), primary_key=True)
-    value: Mapped[str] = mapped_column(String(200))
+    value: Mapped[str] = mapped_column(Text)
 
 
 class LoginThrottle(Base):
@@ -152,3 +154,31 @@ class SecurityEvent(Base):
     account_hash: Mapped[str | None] = mapped_column(String(64))
     client_hash: Mapped[str | None] = mapped_column(String(64))
     detail: Mapped[str] = mapped_column(String(300), default="")
+
+
+class FetchBatch(Base):
+    __tablename__ = "fetch_batches"
+    __table_args__ = (UniqueConstraint("run_day", "slot", name="uq_fetch_batch_slot"), {"sqlite_autoincrement": True})
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_day: Mapped[date] = mapped_column(Date, index=True)
+    slot: Mapped[str | None] = mapped_column(String(10))
+    status: Mapped[str] = mapped_column(String(30))
+    started_at: Mapped[datetime] = mapped_column(DateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+    summary: Mapped[str] = mapped_column(Text, default="")
+
+
+class DailyDigest(Base):
+    __tablename__ = "daily_digests"
+    send_day: Mapped[date] = mapped_column(Date, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    title: Mapped[str] = mapped_column(String(100))
+    message: Mapped[str] = mapped_column(Text)
+    html: Mapped[str] = mapped_column(Text)
+
+
+class NotificationClaim(Base):
+    __tablename__ = "notification_claims"
+    key: Mapped[str] = mapped_column(String(180), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    log_id: Mapped[int]

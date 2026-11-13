@@ -4,10 +4,12 @@ import { getJson, mutateJson } from '../api'
 const email = ref(''), savedEmail = ref(''), emailVerified = ref(false), code = ref('')
 const channel = ref(null), error = ref(''), notice = ref(''), busy = ref(false), loading = ref(true), loaded = ref(false)
 const dirty = computed(() => email.value !== savedEmail.value)
-const canVerify = computed(() => loaded.value && !loading.value && !busy.value && !!savedEmail.value && !dirty.value && !emailVerified.value)
+const dailyDigest = ref(false), digestBusy = ref(false)
+const canVerify = computed(() => loaded.value && !loading.value && !busy.value && !digestBusy.value && !!savedEmail.value && !dirty.value && !emailVerified.value)
 let requestId = 0, editVersion = 0
 function applySettings(data, replaceEmail = true) {
   savedEmail.value = data.email || ''; emailVerified.value = data.email_verified === true; channel.value = data.channel
+  dailyDigest.value = data.daily_digest_enabled === true
   if (replaceEmail) email.value = savedEmail.value
   code.value = ''
 }
@@ -23,7 +25,7 @@ async function load() {
   finally { if (id === requestId) loading.value = false }
 }
 async function save() {
-  if (!loaded.value || loading.value || busy.value) return
+  if (!loaded.value || loading.value || busy.value || digestBusy.value) return
   const id = ++requestId, submittedEmail = email.value.trim()
   busy.value = true; error.value = ''; notice.value = ''
   try {
@@ -60,13 +62,23 @@ async function confirmCode() {
   } catch (e) { if (id === requestId) error.value = e.message }
   finally { if (id === requestId) busy.value = false }
 }
+async function saveDigest() {
+  if (!loaded.value || loading.value || busy.value || digestBusy.value || dirty.value) return
+  const id = ++requestId, submitted = dailyDigest.value
+  digestBusy.value = true; error.value = ''; notice.value = ''
+  try {
+    await mutateJson('/api/me/push-settings', 'PUT', { email: savedEmail.value, daily_digest_enabled: submitted })
+    if (id === requestId) { dailyDigest.value = submitted; notice.value = '每日行情日报设置已保存。' }
+  } catch (e) { if (id === requestId) error.value = e.message }
+  finally { if (id === requestId) digestBusy.value = false }
+}
 onMounted(load)
 onBeforeUnmount(() => { requestId++ })
 </script>
 <template>
   <h1 class="page-title">我的推送设置</h1>
   <section class="panel alert-form-panel">
-    <form class="account-form" @submit.prevent="save"><label>收件邮箱<input v-model="email" @input="editVersion++" type="email" maxlength="254" placeholder="your@example.com" :disabled="loading || busy || !loaded" /></label><button class="button" :disabled="loading || busy || !loaded">{{ loading ? '正在读取…' : '保存邮箱' }}</button></form>
+    <form class="account-form" @submit.prevent="save"><label>收件邮箱<input v-model="email" @input="editVersion++" type="email" maxlength="254" placeholder="your@example.com" :disabled="loading || busy || digestBusy || !loaded" /></label><button class="button" :disabled="loading || busy || digestBusy || !loaded">{{ loading ? '正在读取…' : '保存邮箱' }}</button></form>
     <p v-if="loaded" data-testid="email-verification-status">{{ !savedEmail ? '尚未设置收件邮箱' : emailVerified ? '已保存邮箱：已验证' : '已保存邮箱：未验证' }}<span v-if="dirty">；修改尚未保存，请先保存再验证。</span></p>
     <template v-if="loaded && savedEmail && !emailVerified">
       <p>验证邮箱归属后才会发送行情提醒和测试邮件。修改邮箱后需要重新验证。</p>
@@ -76,5 +88,6 @@ onBeforeUnmount(() => { requestId++ })
     <p v-if="channel">{{ channel.message }}</p><p>普通账号通过已验证邮箱接收；管理员的 Telegram 推送不受邮箱验证影响，验证邮箱后可同时接收邮件。</p>
     <p>“发送成功”表示邮件服务已接受，请在邮箱核对收信。<RouterLink to="/push-logs">查看我的推送日志 ↗</RouterLink></p>
   </section>
+  <section class="panel alert-form-panel"><h2>每日行情日报</h2><p>包含全部11个品种价格及走势，独立于价格规则。管理员默认开启走 Telegram；普通账号开启后须用已验证邮箱接收。</p><label><input v-model="dailyDigest" type="checkbox" :disabled="!loaded || loading || busy || digestBusy || dirty" /> 每日行情日报</label> <button class="button" :disabled="!loaded || loading || busy || digestBusy || dirty" @click="saveDigest">保存日报设置</button><p v-if="dirty">请先保存邮箱修改。</p></section>
   <div v-if="error" class="notice error-notice" role="alert">{{ error }}<button v-if="!loaded" class="text-button" :disabled="loading" @click="load">重新读取</button></div><div v-if="notice" class="notice" role="status">{{ notice }}</div>
 </template>

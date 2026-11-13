@@ -16,6 +16,33 @@ class Sci99Adapter(HttpSource):
         super().__init__(interval=5.0, **kwargs)
         self.settings = settings if settings is not None else read_sci99_settings()
 
+    def authenticate(self, client):
+        if self.settings.get("SCI99_COOKIE"):
+            cookies = SimpleCookie()
+            try:
+                cookies.load(self.settings["SCI99_COOKIE"])
+            except Exception:
+                raise SourceError("SCI99_COOKIE 格式不正确") from None
+            if not cookies:
+                raise SourceError("SCI99_COOKIE 为空或无法解析")
+            for key, value in cookies.items():
+                client.cookies.set(key, value.value, domain=".sci99.com", path="/")
+        else:
+            self.login(client)
+
+    def test_connection(self):
+        if not sci99_configured(self.settings):
+            raise SourceError("未配置")
+        with nullcontext(self.client) if self.client else self.open_client() as client:
+            self.authenticate(client)
+            if self.settings.get("SCI99_COOKIE"):
+                # Cookie 只查官网账户页的登录标志，不遍历报价页、不解析价格。
+                url = validate_url(self.settings.get("SCI99_LOGIN_URL") or "https://ucenter.sci99.com/", ("sci99.com",))
+                response = self.request(client, "GET", url, sci99=True)
+                text = HTMLParser(response.text).body
+                if not text or not re.search(r"退出登录|安全退出|登录成功", text.text()):
+                    raise AccessStopped("Cookie 登录可用性未确认，已停止")
+
     def fetch(self) -> list[PricePoint]:
         if not sci99_configured(self.settings):
             return []
@@ -103,7 +130,7 @@ class Sci99Adapter(HttpSource):
         latest = [price for day, price in matches if day == latest_date]
         if len(latest) != 1:
             raise SourceError("ABS 同日报价不唯一，拒绝混用口径")
-        item = COMMODITY_MAP["abs"]
-        return PricePoint(code="abs", price=latest[0], unit=item.unit, quote_basis=item.quote_basis,
+        # 旧框架口径独立标注，绝不冒充当前华南免费来源口径。
+        return PricePoint(code="abs", price=latest[0], unit="元/吨", quote_basis="华东市场 ABS 0215A 现货均价",
                           quote_date=latest_date, source="sci99", source_name=SOURCES["sci99"]["name"],
                           source_url=source_url, fetched_at=now().replace(tzinfo=None))

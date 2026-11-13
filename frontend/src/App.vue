@@ -34,7 +34,7 @@ watch(user, value => { if (value) refresh() }, { immediate: true })
         <div class="nav-label">数据源状态</div>
         <div v-for="source in sources" :key="source.source" class="source-item">
           <span class="small-dot" :class="source.status === 'ok' ? 'dot-green' : 'dot-muted'"></span>
-          <div><strong>{{ source.source === 'free' ? '世铝网 / 南海灵通' : source.name }}</strong><small>{{ source.source === 'sci99' && source.status === 'pending_credentials' ? '暂缓启用 · 待配置凭据' : source.message }}</small></div>
+          <div><strong>{{ source.source === 'free' ? '世铝网 / 南海灵通' : source.name }}</strong><small>{{ source.message }}</small></div>
         </div>
         <p v-if="!sources.length" class="muted">{{ loading ? '正在读取状态…' : '暂未获取来源状态' }}</p>
       </section>
@@ -45,7 +45,7 @@ watch(user, value => { if (value) refresh() }, { immediate: true })
         <div v-if="error" class="notice error-notice" role="alert">{{ error }}<span v-if="refreshedAt">当前保留上次读取的数据（{{ time(refreshedAt) }}）。</span><button class="text-button" :disabled="loading" @click="refresh">重新读取</button></div>
         <RouterView />
       </main>
-      <footer class="page-footer"><span>价格随报价日期展示；周末及节假日仍会提示旧报价。</span></footer>
+      <footer class="page-footer"><span>请核对报价日期；过期按最近工作日（周一至周五）判断。</span></footer>
     </div>
   </div>
 </template>

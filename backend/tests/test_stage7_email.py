@@ -144,7 +144,7 @@ def test_stage5_upgrade_backup_unverifies_old_addresses_and_is_idempotent(accoun
         assert "email_verified_at" not in {row[1] for row in connection.execute("PRAGMA table_info(push_settings)")}
     with sqlite3.connect(path) as connection:
         assert connection.execute("SELECT email,email_verified_at,verification_attempts FROM push_settings").fetchone() == ("legacy@example.com", None, 0)
-        assert connection.execute("SELECT value FROM site_settings WHERE key='schema_version'").fetchone()[0] == "7"
+        assert connection.execute("SELECT value FROM site_settings WHERE key='schema_version'").fetchone()[0] == "9"
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
     assert initialize_database(engine) is None
     assert "test_admin" in caplog.text and "跳过" in caplog.text

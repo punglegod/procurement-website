@@ -125,8 +125,8 @@ def test_sci99_failure_isolated_and_not_retried_same_day(factory, monkeypatch):
         raise AccessStopped("触发验证码，已停止")
 
     monkeypatch.setattr(Sci99Adapter, "fetch", blocked)
-    first = FetchService(factory).run()
-    second = FetchService(factory).run()
+    first = FetchService(factory).run(slot="09:00")
+    second = FetchService(factory).run(slot="09:00")
     assert first["results"][0]["outcome"] == "success"
     assert first["results"][1]["status"] == "blocked"
     assert second["results"][1]["status"] == "daily_limit"

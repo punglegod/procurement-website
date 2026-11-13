@@ -45,5 +45,5 @@ const filtered = computed(() => items.value.filter(item =>
     </div>
     <div class="table-footer"><span>显示 {{ filtered.length }} / {{ items.length }} 个品种</span><span>“—” 表示暂无报价或缺少上一报价日数据</span></div>
   </section>
-  <div class="notice info-notice"><span class="info-icon" aria-hidden="true">i</span><p>11 个品种均使用免费公开现货源，卓创暂缓启用。各品种规格与计价方式见报价口径；请留意报价日期。点击品种查看历史走势，点击来源查看原始报价。</p></div>
+  <div class="notice info-notice"><span class="info-icon" aria-hidden="true">i</span><p>11 个品种均使用免费公开现货源。各品种规格与计价方式见报价口径；请留意报价日期。点击品种查看历史走势，点击来源查看原始报价。</p></div>
 </template>

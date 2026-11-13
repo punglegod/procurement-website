@@ -121,7 +121,7 @@ def test_all_free_sources_isolated_sci99_dormant_and_upsert(tmp_path, monkeypatc
     try:
         first, second = service.run(), service.run()
         assert first["results"][0]["status"] == "blocked"
-        assert first["results"][1]["status"] == "pending_credentials"
+        assert first["results"][1]["status"] == "configured_disabled"
         assert sum(r["outcome"] == "success" for r in first["results"]) == 10
         assert sum(r["outcome"] == "success" for r in second["results"]) == 10
         with factory() as session:
@@ -157,9 +157,9 @@ def test_scheduler_single_daily_job_and_fetch_busy_route(tmp_path, monkeypatch):
         with TestClient(main_module.app) as client:
             assert client.post("/api/auth/login", json={"username": "test_admin", "password": "isolated-test-password"}).status_code == 200
             jobs = {j.id: j for j in main_module.app.state.scheduler.get_jobs()}
-            assert set(jobs) == {"daily_prices", "alerts"}
-            assert str(jobs["daily_prices"].trigger) == "cron[hour='15', minute='30']"
-            assert str(jobs["daily_prices"].trigger.timezone) == "Asia/Shanghai"
+            assert set(jobs) == {"prices_0800", "prices_0830", "prices_0900", "prices_1530", "alerts", "morning_monitor"}
+            assert str(jobs["prices_1530"].trigger) == "cron[hour='15', minute='30']"
+            assert str(jobs["prices_1530"].trigger.timezone) == "Asia/Shanghai"
             assert jobs["alerts"].trigger.interval.total_seconds() == 300
             assert all(j.max_instances == 1 for j in jobs.values())
             assert service_module.run_lock.acquire(blocking=False)

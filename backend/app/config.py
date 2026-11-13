@@ -9,6 +9,8 @@ from dotenv import dotenv_values
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
 TIMEZONE = ZoneInfo("Asia/Shanghai")
+# 固定北京时间四轮；09:00 完成后日报，15:30 原轮次继续保留。
+FETCH_SLOTS = ((8, 0), (8, 30), (9, 0), (15, 30))
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -106,3 +108,15 @@ def read_public_origin() -> str | None:
         return f"{parsed.scheme}://{host}{suffix}"
     except (ValueError, UnicodeError):
         raise ValueError("PUBLIC_BASE_URL 必须是仅含 http/https 来源的地址，不含路径、凭据、查询或片段") from None
+
+
+def read_settings_encryption_key() -> str:
+    # 不生成、不回写；缺失时禁用后台凭据保存，其他功能仍可启动。
+    values = dotenv_values(ROOT / ".env", encoding="utf-8-sig", interpolate=False)
+    return (values.get("SETTINGS_ENCRYPTION_KEY") or "").strip()
+
+
+def latest_workday(day):
+    # 本站工作日口径为周一至周五，不接入或猜测法定节假日日历。
+    from datetime import timedelta
+    return day - timedelta(days=max(0, day.weekday() - 4))

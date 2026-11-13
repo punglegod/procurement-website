@@ -11,9 +11,10 @@ from sqlalchemy.exc import IntegrityError
 from .adapters.common import AccessStopped, SourceError, now
 from .adapters.free import FreeAdapter
 from .adapters.sci99 import Sci99Adapter
-from .config import COMMODITIES, COMMODITY_MAP, SOURCES, read_sci99_settings, sci99_configured
+from .config import COMMODITIES, COMMODITY_MAP, SOURCES, read_sci99_settings, sci99_configured, latest_workday
 from .db import SessionLocal
 from .models import PricePoint, SourceRun, SourceState
+from .source_settings import SourceSettings
 
 logger = logging.getLogger(__name__)
 run_lock = threading.Lock()
@@ -50,6 +51,7 @@ class FetchService:
     def store(self, points, source):
         if not points:
             raise SourceError("来源未返回价格点")
+        changed = 0
         with self.session_factory() as session:
             for point in points:
                 config = COMMODITY_MAP.get(point.code)
@@ -61,42 +63,60 @@ class FetchService:
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["code", "source", "quote_basis", "quote_date"],
                     set_={key: value for key, value in values.items() if key not in ("code", "source", "quote_basis", "quote_date")},
+                    where=PricePoint.price != stmt.excluded.price,
                 )
-                session.execute(stmt)
+                changed += session.execute(stmt).rowcount
             session.commit()
+        return changed
 
-    def run(self):
+    def run(self, *, slot=None):
         if not run_lock.acquire(blocking=False):
             raise FetchBusy()
         results = []
         try:
-            settings = read_sci99_settings()
+            source_settings = SourceSettings(self.session_factory, legacy_reader=lambda: read_sci99_settings())
             for source in SOURCES:
                 if source == "sci99":
-                    if not SOURCES[source].get("enabled", True) or not sci99_configured(settings):
-                        results.append({"source": source, "outcome": "skipped", "status": "pending_credentials", "message": "待配置凭据"})
+                    configured = source_settings.state()
+                    if configured["status"] != "enabled":
+                        results.append({"source": source, "outcome": "skipped", "status": configured["status"], "message": configured["message"]})
+                        continue
+                    # 四轮中只有09:00允许卓创；手动与其余三轮也不消耗卓创额度。
+                    if slot != "09:00":
+                        results.append({"source": source, "outcome": "skipped", "status": "scheduled_only", "message": "卓创仅09:00轮执行"})
                         continue
                     if not self.claim_sci99_day():
                         results.append({"source": source, "outcome": "skipped", "status": "daily_limit", "message": "卓创今日已尝试，跳过；保留上次结果"})
                         continue
-                self.set_state(source, "running", "正在抓取")
                 try:
+                    self.set_state(source, "running", "正在抓取")
                     if source == "free":
                         adapter = FreeAdapter()
                     elif source == "sci99":
+                        settings, _, _ = source_settings.resolve()
                         adapter = Sci99Adapter(settings=settings)
                     else:
                         module, name = SOURCES[source]["adapter"].split(":")
                         adapter = getattr(import_module(f".adapters.{module}", package=__package__), name)()
                     points = adapter.fetch()
-                    self.store(points, source)
-                    self.set_state(source, "ok", f"正常：入库 {len(points)} 个价格点", success=True)
-                    results.append({"source": source, "outcome": "success", "status": "ok", "stored": len(points)})
+                    if source == "sci99" and any(COMMODITY_MAP[p.code].source != "sci99" for p in points):
+                        raise SourceError("卓创报价口径尚未绑定到当前行情，未替换免费源")
+                    changed = self.store(points, source)
+                    self.set_state(source, "ok", f"正常：更新 {changed} 个价格点" if changed else "正常：无更新", success=True)
+                    results.append({"source": source, "outcome": "success", "status": "ok", "stored": changed,
+                                    "prices": [{"code": point.code, "price": float(point.price), "unit": point.unit} for point in points]})
                 except Exception as error:
                     # 不输出 HTTP 异常原文、响应体、Cookie 或账号，避免凭据进入日志。
                     message = str(error) if isinstance(error, SourceError) else "内部处理失败，请检查数据库和解析器"
+                    if source == "sci99":
+                        message = ("卓创登录异常、验证码或风控，已停止；请人工检查官网" if isinstance(error, AccessStopped)
+                                   else "卓创报价口径尚未绑定到当前行情，未替换免费源" if isinstance(error, SourceError) and str(error) == "卓创报价口径尚未绑定到当前行情，未替换免费源"
+                                   else "卓创报价解析或处理未确认，请人工核定（未影响免费源）")
                     status = "blocked" if isinstance(error, AccessStopped) else "failed"
-                    self.set_state(source, status, message)
+                    try:
+                        self.set_state(source, status, message)
+                    except Exception:
+                        logger.error("来源状态写入失败，请检查数据库")
                     logger.warning("source=%s status=%s reason=%s", source, status, message)
                     results.append({"source": source, "outcome": "failed", "status": status, "message": message})
             # 入库完成后独立检查提醒；通道故障不改变抓取成功状态。
@@ -111,7 +131,7 @@ class FetchService:
             run_lock.release()
 
     def statuses(self):
-        settings = read_sci99_settings()
+        configured = SourceSettings(self.session_factory, legacy_reader=lambda: read_sci99_settings()).state()
         with self.session_factory() as session:
             states = {state.source: state for state in session.scalars(select(SourceState))}
             run = session.scalar(select(SourceRun).where(SourceRun.source == "sci99", SourceRun.run_date == now().date()))
@@ -119,8 +139,10 @@ class FetchService:
         for source, config in SOURCES.items():
             state = states[source]
             status, message = state.status, state.message
-            if source == "sci99" and (not config.get("enabled", True) or not sci99_configured(settings)):
-                status, message = "pending_credentials", "待配置凭据"
+            if source == "sci99" and configured["status"] != "enabled":
+                status, message = configured["status"], configured["message"]
+            elif source == "sci99" and state.status in {"never_run", "pending_credentials", "configured_disabled", "configuration_error"}:
+                status, message = configured["status"], configured["message"]
             elif status == "running" and not run_lock.locked():
                 status, message = "interrupted", "上次抓取被中断；卓创当天额度不会重置"
             result.append({
@@ -167,7 +189,7 @@ def latest_prices(session_factory=SessionLocal):
             result.append({
                 "code": item.code, "name": item.name, "source": item.source, "quote_basis": item.quote_basis,
                 "unit": item.unit, "data_status": data_status, "message": message,
-                "stale": point is None or point.quote_date < now().date(),
+                "stale": point is None or point.quote_date < latest_workday(now().date()),
                 "price_point": serialize_price(point) if point else None,
                 "change_amount": float(change) if change is not None else None,
                 "change_percent": float(percent) if percent is not None else None,

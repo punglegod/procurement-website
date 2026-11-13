@@ -20,10 +20,11 @@ export const pushStatus = value => ({ sent: '发送成功', failed: '发送失�
 export const number = (value) => value == null ? '—' : new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(value)
 export const signed = (value, suffix = '') => value == null ? '—' : `${value > 0 ? '+' : value < 0 ? '−' : ''}${number(Math.abs(value))}${suffix}`
 export const direction = (value) => value > 0 ? 'up' : value < 0 ? 'down' : 'neutral'
+export const pushKind = log => ({ test: '通道测试', verification: '邮箱验证', digest: '日报', fetch_progress: '抓取进度' }[log.kind] || `规则 #${log.rule_id} · ${log.code}`)
 export const time = (value) => value ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value)) : '—'
 
 export function statusText(item) {
-  if (item.price_point) return item.stale ? '数据过期' : '今日报价'
+  if (item.price_point) return item.stale ? '数据过期' : '有效报价'
   if (item.data_status === 'pending_credentials') return '待配置凭据'
   if (item.data_status === 'pending_configuration') return '免费源待接入'
   if (['failed', 'blocked', 'interrupted'].includes(item.data_status)) return '来源异常'

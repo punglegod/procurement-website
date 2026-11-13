@@ -45,7 +45,7 @@ onBeforeUnmount(() => { requestId++; controller?.abort() })
   <RouterLink to="/" class="back-link">← 返回行情总览</RouterLink>
   <template v-if="item">
     <h1 class="page-title">{{ item.name }} <span class="status-badge" :class="point ? (item.stale ? 'badge-amber' : 'badge-green') : 'badge-muted'">{{ statusText(item) }}</span></h1>
-    <div v-if="point && item.stale" class="notice stale-notice" role="status">数据过期：最新报价日期为 {{ point.quote_date }}，早于北京时间今天。以下保留最后真实报价。</div>
+    <div v-if="point && item.stale" class="notice stale-notice" role="status">数据过期：最新报价日期为 {{ point.quote_date }}，早于最近工作日。以下保留最后真实报价。</div>
     <section class="detail-summary" aria-label="品种最新行情">
       <div class="latest-block"><span class="metric-label">最新现货价</span><div class="latest-value">{{ number(point?.price) }}<small>{{ point?.unit || item.unit }}</small></div></div>
       <div><span class="metric-label">涨跌额 <small>较上一报价日</small></span><strong class="detail-metric" :class="direction(item.change_amount)">{{ signed(item.change_amount) }}<small v-if="item.change_amount != null"> {{ item.unit }}</small></strong></div>

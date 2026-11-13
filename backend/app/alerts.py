@@ -98,7 +98,8 @@ class EmailSender:
         request = httpx.Request("POST", "https://api.resend.com/emails",
                                headers={"Authorization": "Bearer " + settings["RESEND_API_KEY"]},
                                json={"from": settings["EMAIL_FROM"], "to": [settings["recipient"]],
-                                     "subject": settings.get("subject", "采购行情 · 现货提醒"), "text": text})
+                                     "subject": settings.get("subject", "采购行情 · 现货提醒"), "text": text,
+                                     **({"html": settings["html"]} if settings.get("html") else {})})
         try:
             if self.client:
                 response = self.client.send(request, follow_redirects=False)
@@ -131,7 +132,7 @@ class _SecretURLFilter(logging.Filter):
     def filter(self, record):
         # httpx/httpcore 的日志可能含完整 token URL；只屏蔽 Telegram 请求日志。
         message = record.getMessage()
-        return "api.telegram.org" not in message and not re.search(r"/bot[A-Za-z0-9:_-]+/", message)
+        return "api.telegram.org" not in message and "sci99.com" not in message and not re.search(r"/bot[A-Za-z0-9:_-]+/", message)
 
 
 for _name in ("httpx", "httpcore.connection", "httpcore.http11", "httpcore.proxy", "httpcore.http2"):
